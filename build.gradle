@@ -27,7 +27,7 @@ minecraft {
 
 dependencies {
     compile files("dependencies/BetterQuesting-core.jar")
-    compile files("dependecies/CoFHLib-1.0.1-151-dev.jar")
+    compile files("dependencies/CoFHLib-1.0.1-151-dev.jar")
 }
 
 processResources
