@@ -29,26 +29,10 @@ public class GuiTaskRfRate extends GuiEmbedded
 		int barSize = Math.min(sizeX/2, 128);
 		float required = task.rate;
 		int midX = sizeX/2;
-		String suffix1 = "";
 		String suffix2 = "";
 		
 		Integer progress = task.userProgress.get(screen.mc.thePlayer.getUniqueID());
 		progress = progress == null? 0 : progress;
-		float rf = progress;
-		
-		if(rf >= 1000000000)
-		{
-			rf /= 1000000000F;
-			suffix1 = "B";
-		} else if(rf >= 1000000)
-		{
-			rf /= 1000000F;
-			suffix1 = "M";
-		} else if(rf >= 1000)
-		{
-			rf /= 1000F;
-			suffix1 = "K";
-		}
 		
 		if(required >= 1000000000)
 		{
@@ -66,7 +50,7 @@ public class GuiTaskRfRate extends GuiEmbedded
 		
 		DecimalFormat df = new DecimalFormat("0.##");
 		
-		int barProg = (int)(MathHelper.clamp_float(progress/(float)task.rate, 0F, 1F) * (barSize - 2));
+		int barProg = (int)(MathHelper.clamp_float(progress/(float)task.duration, 0F, 1F) * (barSize - 2));
 		
 		GL11.glPushMatrix();
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -75,7 +59,7 @@ public class GuiTaskRfRate extends GuiEmbedded
 		GL11.glPopMatrix();
 		GuiQuesting.drawRect(posX + midX - barSize/2, posY + sizeY/2, posX + midX + barSize/2, posY + sizeY/2 + 16, Color.BLACK.getRGB());
 		GuiQuesting.drawRect(posX + midX - barSize/2 + 1, posY + sizeY/2 + 1, posX + midX - barSize/2 + barProg + 1, posY + sizeY/2 + 15, Color.RED.getRGB());
-		String txt = EnumChatFormatting.BOLD + "" + df.format(rf) + suffix1 + "/" + df.format(required) + suffix2 + " RF/t";
+		String txt = EnumChatFormatting.BOLD + df.format(required) + suffix2 + " RF/t";
 		screen.mc.fontRenderer.drawString(txt, posX + sizeX/2 - screen.mc.fontRenderer.getStringWidth(txt)/2, posY + sizeY/2 + 4, Color.WHITE.getRGB(), true);
 	}
 }

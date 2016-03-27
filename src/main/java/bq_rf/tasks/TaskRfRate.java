@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import org.apache.logging.log4j.Level;
@@ -20,8 +21,11 @@ import com.google.gson.JsonObject;
 
 public class TaskRfRate extends TaskBase implements IRfTask
 {
+	public HashMap<UUID, Long> lastInput = new HashMap<UUID, Long>();
 	public HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
 	public int rate = 100000;
+	public int duration = 200;
+	public boolean delExcess = false;
 	
 	@Override
 	public void submitItem(UUID owner, Slot input, Slot output)
@@ -37,19 +41,26 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		
 		Integer progress = userProgress.get(owner);
 		progress = progress != null? progress : 0;
-		int extracted = eItem.extractEnergy(stack, rate, true);
-		progress = Math.max(progress, extracted);
+		
+		int extracted = eItem.extractEnergy(stack, delExcess? Integer.MAX_VALUE : rate, true);
+		
+		if(extracted >= rate)
+		{
+			progress = Math.min(progress + 1, duration); // Adds extra to counter the update decrease
+			lastInput.put(owner, System.currentTimeMillis()/1000L); // Set the time the last input was received to the nearest second
+		}
+		
 		userProgress.put(owner, progress);
+		
+		if(progress >= duration)
+		{
+			setCompletion(owner, true);
+		}
 		
 		if(eItem.getEnergyStored(stack) <= 0)
 		{
 			output.putStack(stack);
 			input.putStack(null);
-		}
-		
-		if(progress >= rate)
-		{
-			setCompletion(owner, true);
 		}
 	}
 	
@@ -58,16 +69,40 @@ public class TaskRfRate extends TaskBase implements IRfTask
 	{
 		Integer progress = userProgress.get(owner);
 		progress = progress != null? progress : 0;
-		int extracted = Math.min(amount, rate);
-		progress = Math.max(progress, extracted);
+		
+		if(amount >= rate)
+		{
+			progress = Math.min(progress + 1, duration); // Adds extra to counter the update decrease
+			lastInput.put(owner, System.currentTimeMillis()/1000L); // Set the time the last input was received to the nearest second
+		}
+		
 		userProgress.put(owner, progress);
 		
-		if(progress >= rate)
+		if(progress >= duration)
 		{
 			setCompletion(owner, true);
 		}
 		
-		return amount;
+		return delExcess? 0 : (amount - rate);
+	}
+	
+	@Override
+	public void Update(EntityPlayer player)
+	{
+		if(isComplete(player.getUniqueID()))
+		{
+			return;
+		}
+		
+		Long last = lastInput.get(player.getUniqueID());
+		
+		if(last == null || last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
+		{
+			Integer progress = userProgress.get(player.getUniqueID());
+			progress = progress != null? progress : 0;
+			progress = Math.max(0, progress - 1);
+			userProgress.put(player.getUniqueID(), progress);
+		}
 	}
 	
 	/**
@@ -96,6 +131,8 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		super.writeToJson(json);
 		
 		json.addProperty("rf", rate);
+		json.addProperty("duration", duration);
+		json.addProperty("voidExcess", delExcess);
 		
 		JsonArray progArray = new JsonArray();
 		for(Entry<UUID,Integer> entry : userProgress.entrySet())
@@ -114,6 +151,8 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		super.readFromJson(json);
 		
 		rate = JsonHelper.GetNumber(json, "rf", 100000).intValue();
+		duration = JsonHelper.GetNumber(json, "duration", 200).intValue();
+		delExcess = JsonHelper.GetBoolean(json, "voidExcess", delExcess);
 		
 		userProgress = new HashMap<UUID,Integer>();
 		for(JsonElement entry : JsonHelper.GetArray(json, "userProgress"))
