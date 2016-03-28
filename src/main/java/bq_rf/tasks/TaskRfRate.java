@@ -138,8 +138,14 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		for(Entry<UUID,Integer> entry : userProgress.entrySet())
 		{
 			JsonObject pJson = new JsonObject();
-			pJson.addProperty("uuid", entry.getKey().toString());
-			pJson.addProperty("value", entry.getValue());
+			try
+			{
+				pJson.addProperty("uuid", entry.getKey().toString());
+				pJson.addProperty("value", entry.getValue());
+			} catch(Exception e)
+			{
+				BQRF.logger.log(Level.ERROR, "Unable to save user progress for task", e);
+			}
 			progArray.add(pJson);
 		}
 		json.add("userProgress", progArray);
