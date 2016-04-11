@@ -1,6 +1,5 @@
 package bq_rf.tasks;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -78,7 +77,7 @@ public class TaskRfCharge extends TaskBase implements IRfTask
 	@Override
 	public void ResetProgress(UUID uuid)
 	{
-		completeUsers.remove(uuid);
+		super.ResetProgress(uuid);
 		userProgress.remove(uuid);
 	}
 	
@@ -88,7 +87,7 @@ public class TaskRfCharge extends TaskBase implements IRfTask
 	@Override
 	public void ResetAllProgress()
 	{
-		completeUsers = new ArrayList<UUID>();
+		super.ResetAllProgress();
 		userProgress = new HashMap<UUID,Integer>();
 	}
 	
