@@ -19,7 +19,7 @@ public class CommonProxy
 	{
 		FMLCommonHandler.instance().bus().register(new UpdateNotification());
     	
-    	BQRF.instance.network.registerMessage(PacketRf.HandlerServer.class, PacketRf.class, 1, Side.SERVER);
+    	BQRF.instance.network.registerMessage(PacketRf.HandlerServer.class, PacketRf.class, 0, Side.SERVER);
 		
 		NetworkRegistry.INSTANCE.registerGuiHandler(BQRF.instance, new GuiHandler());
 	}
