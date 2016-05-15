@@ -3,14 +3,18 @@ package bq_rf.core;
 import net.minecraft.block.Block;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
 import org.apache.logging.log4j.Logger;
 import betterquesting.core.BetterQuesting;
+import betterquesting.network.PacketTypeRegistry;
 import betterquesting.quests.tasks.TaskRegistry;
 import bq_rf.block.BlockRfStation;
 import bq_rf.block.TileRfStation;
 import bq_rf.core.proxies.CommonProxy;
 import bq_rf.handlers.ConfigHandler;
+import bq_rf.network.PktHandlerRfTile;
+import bq_rf.network.RfPacketType;
 import bq_rf.tasks.TaskRfCharge;
 import bq_rf.tasks.TaskRfRate;
 import cpw.mods.fml.common.Mod;
@@ -53,6 +57,8 @@ public class BQRF
     	ConfigHandler.initConfigs();
     	
     	proxy.registerHandlers();
+    	
+    	PacketTypeRegistry.RegisterType(new PktHandlerRfTile(), RfPacketType.RF_TILE.GetLocation());
     }
     
     @EventHandler
@@ -63,8 +69,8 @@ public class BQRF
     	GameRegistry.registerBlock(rfStation, "rf_station");
     	GameRegistry.registerTileEntity(TileRfStation.class, "rf_station");
     	
-    	TaskRegistry.RegisterTask(TaskRfCharge.class, "rf_charge");
-    	TaskRegistry.RegisterTask(TaskRfRate.class, "rf_rate");
+    	TaskRegistry.RegisterTask(TaskRfCharge.class, new ResourceLocation(MODID + ":rf_charge"));
+    	TaskRegistry.RegisterTask(TaskRfRate.class, new ResourceLocation(MODID + ":rf_rate"));
     }
     
     @EventHandler

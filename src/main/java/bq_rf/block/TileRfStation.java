@@ -13,11 +13,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.util.ForgeDirection;
 import org.apache.logging.log4j.Level;
+import betterquesting.network.PacketAssembly;
 import betterquesting.quests.QuestDatabase;
 import betterquesting.quests.QuestInstance;
 import betterquesting.quests.tasks.TaskBase;
 import bq_rf.core.BQRF;
-import bq_rf.network.PacketRf;
+import bq_rf.network.RfPacketType;
 import bq_rf.tasks.IRfTask;
 import cofh.api.energy.IEnergyContainerItem;
 import cofh.api.energy.IEnergyReceiver;
@@ -329,7 +330,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
     		this.writeToNBT(tileData);
     		payload.setTag("tile", tileData);
     		payload.setInteger("ID", 0);
-    		BQRF.instance.network.sendToServer(new PacketRf(payload));
+    		PacketAssembly.SendToServer(RfPacketType.RF_TILE.GetLocation(), payload);
     	}
     }
 	
