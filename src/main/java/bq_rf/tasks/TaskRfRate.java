@@ -9,7 +9,12 @@ import net.minecraft.item.ItemStack;
 import org.apache.logging.log4j.Level;
 import betterquesting.client.gui.GuiQuesting;
 import betterquesting.client.gui.misc.GuiEmbedded;
+import betterquesting.party.PartyInstance;
+import betterquesting.party.PartyManager;
+import betterquesting.party.PartyInstance.PartyMember;
+import betterquesting.quests.QuestInstance;
 import betterquesting.quests.tasks.TaskBase;
+import betterquesting.quests.tasks.advanced.IProgressionTask;
 import betterquesting.utils.JsonHelper;
 import bq_rf.client.gui.tasks.GuiTaskRfRate;
 import bq_rf.core.BQRF;
@@ -18,8 +23,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-public class TaskRfRate extends TaskBase implements IRfTask
+public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<Integer>
 {
+	public long globalLast = 0L;
+	public int globalProg = 0;
 	public HashMap<UUID, Long> lastInput = new HashMap<UUID, Long>();
 	public HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
 	public int rate = 100000;
@@ -31,30 +38,27 @@ public class TaskRfRate extends TaskBase implements IRfTask
 	{
 		ItemStack stack = input.getStack();
 		
-		if(stack == null || !(stack.getItem() instanceof IEnergyContainerItem))
+		if(stack == null || isComplete(owner) || !(stack.getItem() instanceof IEnergyContainerItem))
 		{
 			return;
 		}
 		
 		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
 		
-		Integer progress = userProgress.get(owner);
-		progress = progress != null? progress : 0;
+		int progress = GetUserProgress(owner);
 		
 		int extracted = eItem.extractEnergy(stack, delExcess? Integer.MAX_VALUE : rate, true);
 		
 		if(extracted >= rate)
 		{
 			progress = Math.min(progress + 1, duration); // Adds extra to counter the update decrease
-			lastInput.put(owner, System.currentTimeMillis()/1000L); // Set the time the last input was received to the nearest second
+			globalProg = Math.min(globalProg + 1, duration);
+			long tmp = System.currentTimeMillis()/1000L;
+			lastInput.put(owner, tmp); // Set the time the last input was received to the nearest second
+			globalLast = tmp;
 		}
 		
-		userProgress.put(owner, progress);
-		
-		if(progress >= duration)
-		{
-			setCompletion(owner, true);
-		}
+		SetUserProgress(owner, progress);
 		
 		if(eItem.getEnergyStored(stack) <= 0)
 		{
@@ -66,41 +70,51 @@ public class TaskRfRate extends TaskBase implements IRfTask
 	@Override
 	public int submitEnergy(UUID owner, int amount)
 	{
-		Integer progress = userProgress.get(owner);
-		progress = progress != null? progress : 0;
+		if(isComplete(owner))
+		{
+			return amount;
+		}
+		
+		int progress = GetUserProgress(owner);
 		
 		if(amount >= rate)
 		{
 			progress = Math.min(progress + 1, duration); // Adds extra to counter the update decrease
-			lastInput.put(owner, System.currentTimeMillis()/1000L); // Set the time the last input was received to the nearest second
+			globalProg = Math.min(globalProg + 1, duration);
+			long tmp = System.currentTimeMillis()/1000L;
+			lastInput.put(owner, tmp); // Set the time the last input was received to the nearest second
+			globalLast = tmp;
 		}
 		
-		userProgress.put(owner, progress);
-		
-		if(progress >= duration)
-		{
-			setCompletion(owner, true);
-		}
+		SetUserProgress(owner, progress);
 		
 		return delExcess? 0 : (amount - rate);
 	}
 	
 	@Override
-	public void Update(EntityPlayer player)
+	public void Update(QuestInstance quest, EntityPlayer player)
 	{
 		if(isComplete(player.getUniqueID()))
 		{
 			return;
 		}
 		
-		Long last = lastInput.get(player.getUniqueID());
+		int total = quest == null || !quest.globalQuest? GetPartyProgress(player.getUniqueID()) : GetGlobalProgress();
 		
-		if(last == null || last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
+		if(total >= duration)
 		{
-			Integer progress = userProgress.get(player.getUniqueID());
-			progress = progress != null? progress : 0;
+			setCompletion(player.getUniqueID(), true);
+			return;
+		}
+		
+		long last = quest == null || !quest.globalQuest? lastInput.get(player.getUniqueID()) : globalLast;
+		
+		if(last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
+		{
+			int progress = GetUserProgress(player.getUniqueID());
 			progress = Math.max(0, progress - 1);
-			userProgress.put(player.getUniqueID(), progress);
+			SetUserProgress(player.getUniqueID(), progress);
+			globalProg = Math.max(0, globalProg - 1);
 		}
 	}
 	
@@ -122,6 +136,7 @@ public class TaskRfRate extends TaskBase implements IRfTask
 	{
 		super.ResetAllProgress();
 		userProgress = new HashMap<UUID,Integer>();
+		globalProg = 0;
 	}
 	
 	@Override
@@ -132,22 +147,6 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		json.addProperty("rf", rate);
 		json.addProperty("duration", duration);
 		json.addProperty("voidExcess", delExcess);
-		
-		JsonArray progArray = new JsonArray();
-		for(Entry<UUID,Integer> entry : userProgress.entrySet())
-		{
-			JsonObject pJson = new JsonObject();
-			try
-			{
-				pJson.addProperty("uuid", entry.getKey().toString());
-				pJson.addProperty("value", entry.getValue());
-			} catch(Exception e)
-			{
-				BQRF.logger.log(Level.ERROR, "Unable to save user progress for task", e);
-			}
-			progArray.add(pJson);
-		}
-		json.add("userProgress", progArray);
 	}
 	
 	@Override
@@ -158,6 +157,19 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		rate = JsonHelper.GetNumber(json, "rf", 100000).intValue();
 		duration = JsonHelper.GetNumber(json, "duration", 200).intValue();
 		delExcess = JsonHelper.GetBoolean(json, "voidExcess", delExcess);
+		
+		if(json.has("userProgress"))
+		{
+			jMig = json;
+		}
+	}
+	
+	JsonObject jMig = null;
+	
+	@Override
+	public void readProgressFromJson(JsonObject json)
+	{
+		super.readProgressFromJson(json);
 		
 		userProgress = new HashMap<UUID,Integer>();
 		for(JsonElement entry : JsonHelper.GetArray(json, "userProgress"))
@@ -182,9 +194,31 @@ public class TaskRfRate extends TaskBase implements IRfTask
 	}
 	
 	@Override
-	public GuiEmbedded getGui(GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
+	public void writeProgressToJson(JsonObject json)
 	{
-		return new GuiTaskRfRate(this, screen, posX, posY, sizeX, sizeY);
+		super.writeProgressToJson(json);
+		
+		JsonArray progArray = new JsonArray();
+		for(Entry<UUID,Integer> entry : userProgress.entrySet())
+		{
+			JsonObject pJson = new JsonObject();
+			try
+			{
+				pJson.addProperty("uuid", entry.getKey().toString());
+				pJson.addProperty("value", entry.getValue());
+			} catch(Exception e)
+			{
+				BQRF.logger.log(Level.ERROR, "Unable to save user progress for task", e);
+			}
+			progArray.add(pJson);
+		}
+		json.add("userProgress", progArray);
+	}
+	
+	@Override
+	public GuiEmbedded getGui(QuestInstance quest, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
+	{
+		return new GuiTaskRfRate(quest, this, screen, posX, posY, sizeX, sizeY);
 	}
 	
 	@Override
@@ -193,4 +227,48 @@ public class TaskRfRate extends TaskBase implements IRfTask
 		return BQRF.MODID + ".task.rf_rate";
 	}
 	
+	@Override
+	public void SetUserProgress(UUID uuid, Integer progress)
+	{
+		userProgress.put(uuid, progress);
+	}
+	
+	@Override
+	public Integer GetUserProgress(UUID uuid)
+	{
+		Integer i = userProgress.get(uuid);
+		return i == null? 0 : i;
+	}
+	
+	@Override
+	public Integer GetPartyProgress(UUID uuid)
+	{
+		int total = 0;
+		
+		PartyInstance party = PartyManager.GetParty(uuid);
+		
+		if(party == null)
+		{
+			return GetUserProgress(uuid);
+		} else
+		{
+			for(PartyMember mem : party.GetMembers())
+			{
+				if(mem != null && mem.GetPrivilege() <= 0)
+				{
+					continue;
+				}
+				
+				total += GetUserProgress(mem.userID);
+			}
+		}
+		
+		return total;
+	}
+	
+	@Override
+	public Integer GetGlobalProgress()
+	{
+		return globalProg;
+	}
 }

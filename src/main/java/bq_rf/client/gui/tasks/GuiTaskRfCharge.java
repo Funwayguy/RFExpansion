@@ -9,58 +9,68 @@ import net.minecraft.util.MathHelper;
 import org.lwjgl.opengl.GL11;
 import betterquesting.client.gui.GuiQuesting;
 import betterquesting.client.gui.misc.GuiEmbedded;
+import betterquesting.quests.QuestInstance;
 import betterquesting.utils.RenderUtils;
 import bq_rf.tasks.TaskRfCharge;
 
 public class GuiTaskRfCharge extends GuiEmbedded
 {
 	ItemStack bottle = new ItemStack(Blocks.redstone_block);
+	QuestInstance quest;
 	TaskRfCharge task;
 	
-	public GuiTaskRfCharge(TaskRfCharge task, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
+	public GuiTaskRfCharge(QuestInstance quest, TaskRfCharge task, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
 	{
 		super(screen, posX, posY, sizeX, sizeY);
 		this.task = task;
+		this.quest = quest;
 	}
 	
 	@Override
 	public void drawGui(int mx, int my, float partialTick)
 	{
 		int barSize = Math.min(sizeX/2, 128);
-		float required = task.RF;
+		double required = task.RF;
 		int midX = sizeX/2;
 		String suffix1 = "";
 		String suffix2 = "";
 		
-		Integer progress = task.userProgress.get(screen.mc.thePlayer.getUniqueID());
-		progress = progress == null? 0 : progress;
-		float rf = progress;
+		long progress = quest == null || !quest.globalQuest? task.GetPartyProgress(screen.mc.thePlayer.getUniqueID()) : task.GetGlobalProgress();
+		double rf = progress;
 		
-		if(rf >= 1000000000)
+		if(rf >= 1000000000000L)
 		{
-			rf /= 1000000000F;
+			rf /= 1000000000000D;
+			suffix1 = "T";
+		} else if(rf >= 1000000000L)
+		{
+			rf /= 1000000000D;
 			suffix1 = "B";
-		} else if(rf >= 1000000)
+		} else if(rf >= 1000000L)
 		{
-			rf /= 1000000F;
+			rf /= 1000000D;
 			suffix1 = "M";
-		} else if(rf >= 1000)
+		} else if(rf >= 1000L)
 		{
-			rf /= 1000F;
+			rf /= 1000D;
 			suffix1 = "K";
 		}
 		
-		if(required >= 1000000000)
+		if(required >= 1000000000000L)
 		{
-			required /= 1000000000F;
+			required /= 1000000000000D;
+			suffix2 = "T";
+		} else if(required >= 1000000000L)
+		{
+			required /= 1000000000D;
 			suffix2 = "B";
-		} else if(required >= 1000000)
+		} else if(required >= 1000000L)
 		{
-			required /= 1000000F;
+			required /= 1000000D;
 			suffix2 = "M";
-		} else if(required >= 1000)
+		} else if(required >= 1000L)
 		{
-			required /= 1000F;
+			required /= 1000D;
 			suffix2 = "K";
 		}
 		

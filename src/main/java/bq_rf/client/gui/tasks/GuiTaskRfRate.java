@@ -9,18 +9,21 @@ import net.minecraft.util.MathHelper;
 import org.lwjgl.opengl.GL11;
 import betterquesting.client.gui.GuiQuesting;
 import betterquesting.client.gui.misc.GuiEmbedded;
+import betterquesting.quests.QuestInstance;
 import betterquesting.utils.RenderUtils;
 import bq_rf.tasks.TaskRfRate;
 
 public class GuiTaskRfRate extends GuiEmbedded
 {
 	ItemStack bottle = new ItemStack(Blocks.redstone_block);
+	QuestInstance quest;
 	TaskRfRate task;
 	
-	public GuiTaskRfRate(TaskRfRate task, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
+	public GuiTaskRfRate(QuestInstance quest, TaskRfRate task, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
 	{
 		super(screen, posX, posY, sizeX, sizeY);
 		this.task = task;
+		this.quest = quest;
 	}
 	
 	@Override
@@ -31,8 +34,7 @@ public class GuiTaskRfRate extends GuiEmbedded
 		int midX = sizeX/2;
 		String suffix2 = "";
 		
-		Integer progress = task.userProgress.get(screen.mc.thePlayer.getUniqueID());
-		progress = progress == null? 0 : progress;
+		long progress = quest == null || !quest.globalQuest? task.GetPartyProgress(screen.mc.thePlayer.getUniqueID()) : task.GetGlobalProgress();
 		
 		if(required >= 1000000000)
 		{
