@@ -216,6 +216,12 @@ public class TaskRfCharge extends TaskBase implements IRfTask, IProgressionTask<
 	}
 	
 	@Override
+	public float GetParticipation(UUID uuid)
+	{
+		return (float)(GetUserProgress(uuid) / (double) RF);
+	}
+	
+	@Override
 	public String getUnlocalisedName()
 	{
 		return BQRF.MODID + ".task.rf_charge";

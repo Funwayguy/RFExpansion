@@ -61,9 +61,6 @@ public class UpdateNotification
 						event.player.addChatMessage(new ChatComponentText(data[i].trim()));
 					}
 				}
-			} else if(verStat == 0)
-			{
-				event.player.addChatMessage(new ChatComponentText(EnumChatFormatting.YELLOW + BQRF.NAME + " " + BQRF.VERSION + " is up to date"));
 			} else if(verStat == 1)
 			{
 				event.player.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + BQRF.NAME + " " + BQRF.VERSION + " is a debug build"));
