@@ -68,7 +68,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 				{
 					Slot sIn = new Slot(this, 0, 0, 0);
 					Slot sOut = new Slot(this, 1, 0, 0);
-					t.submitItem(owner, sIn, sOut);
+					t.submitItem(q, owner, sIn, sOut);
 					
 					if(((TaskBase)t).isComplete(owner))
 					{
@@ -114,7 +114,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		
 		if(!simulate)
 		{
-			remainder = t.submitEnergy(owner, energy);
+			remainder = t.submitEnergy(q, owner, energy);
 		
 			if(((TaskBase)t).isComplete(owner))
 			{

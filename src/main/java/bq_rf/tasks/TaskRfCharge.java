@@ -60,19 +60,20 @@ public class TaskRfCharge extends TaskBase implements IRfTask, IProgressionTask<
 				continue;
 			}
 			
-			submitItem(player.getUniqueID(), ps, ps);
+			submitItem(quest, player.getUniqueID(), ps, ps);
 			
 			long total = quest == null || !quest.globalQuest? GetPartyProgress(player.getUniqueID()) : GetGlobalProgress();
 			
 			if(total >= RF)
 			{
 				setCompletion(player.getUniqueID(), true);
+				break;
 			}
 		}
 	}
 	
 	@Override
-	public void submitItem(UUID owner, Slot input, Slot output)
+	public void submitItem(QuestInstance quest, UUID owner, Slot input, Slot output)
 	{
 		ItemStack stack = input.getStack();
 		
@@ -96,10 +97,17 @@ public class TaskRfCharge extends TaskBase implements IRfTask, IProgressionTask<
 			input.putStack(null);
 			output.putStack(stack);
 		}
+		
+		long total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		
+		if(total >= RF)
+		{
+			setCompletion(owner, true);
+		}
 	}
 	
 	@Override
-	public int submitEnergy(UUID owner, int amount)
+	public int submitEnergy(QuestInstance quest, UUID owner, int amount)
 	{
 		Long progress = GetUserProgress(owner);
 		progress = progress != null? progress : 0;
@@ -107,6 +115,13 @@ public class TaskRfCharge extends TaskBase implements IRfTask, IProgressionTask<
 		int extracted = Math.min(amount, requesting);
 		progress += extracted;
 		SetUserProgress(owner, progress);
+		
+		long total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		
+		if(total >= RF)
+		{
+			setCompletion(owner, true);
+		}
 		
 		return (int)(amount - extracted);
 	}

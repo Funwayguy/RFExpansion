@@ -34,7 +34,7 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 	public boolean delExcess = false;
 	
 	@Override
-	public void submitItem(UUID owner, Slot input, Slot output)
+	public void submitItem(QuestInstance quest, UUID owner, Slot input, Slot output)
 	{
 		ItemStack stack = input.getStack();
 		
@@ -65,10 +65,17 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			output.putStack(stack);
 			input.putStack(null);
 		}
+		
+		int total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		
+		if(total >= duration)
+		{
+			setCompletion(owner, true);
+		}
 	}
 	
 	@Override
-	public int submitEnergy(UUID owner, int amount)
+	public int submitEnergy(QuestInstance quest, UUID owner, int amount)
 	{
 		if(isComplete(owner))
 		{
@@ -87,6 +94,13 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 		}
 		
 		SetUserProgress(owner, progress);
+		
+		int total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		
+		if(total >= duration)
+		{
+			setCompletion(owner, true);
+		}
 		
 		return delExcess? 0 : (amount - rate);
 	}
@@ -107,7 +121,7 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			return;
 		}
 		
-		long last = quest == null || !quest.globalQuest? lastInput.get(player.getUniqueID()) : globalLast;
+		long last = quest == null || !quest.globalQuest? GetUserLast(player.getUniqueID()) : GetGlobalLast();
 		
 		if(last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
 		{
@@ -116,6 +130,28 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			SetUserProgress(player.getUniqueID(), progress);
 			globalProg = Math.max(0, globalProg - 1);
 		}
+	}
+	
+	@Override
+	public void Detect(QuestInstance quest, EntityPlayer player)
+	{
+		int total = quest == null || !quest.globalQuest? GetPartyProgress(player.getUniqueID()) : GetGlobalProgress();
+		
+		if(total >= duration)
+		{
+			setCompletion(player.getUniqueID(), true);
+		}
+	}
+	
+	public long GetUserLast(UUID uuid)
+	{
+		Long l = lastInput.get(uuid);
+		return l == null? 0 : l;
+	}
+	
+	public long GetGlobalLast()
+	{
+		return globalLast;
 	}
 	
 	/**
