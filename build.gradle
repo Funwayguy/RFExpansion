@@ -17,7 +17,7 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = "BQ_RF_VER"
+version = "CI_MOD_VERSION"
 group= "bq_rf" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "RFExpansion"
 
