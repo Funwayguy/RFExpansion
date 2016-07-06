@@ -1,10 +1,10 @@
 package bq_rf.core.proxies;
 
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
 import bq_rf.client.gui.UpdateNotification;
 import bq_rf.core.BQRF;
 import bq_rf.handlers.GuiHandler;
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.common.network.NetworkRegistry;
 
 public class CommonProxy
 {
@@ -15,12 +15,16 @@ public class CommonProxy
 	
 	public void registerHandlers()
 	{
-		FMLCommonHandler.instance().bus().register(new UpdateNotification());
+		MinecraftForge.EVENT_BUS.register(new UpdateNotification());
 		
 		NetworkRegistry.INSTANCE.registerGuiHandler(BQRF.instance, new GuiHandler());
 	}
 
 	public void registerThemes()
+	{
+	}
+	
+	public void registerRenderers()
 	{
 	}
 }

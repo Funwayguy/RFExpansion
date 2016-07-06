@@ -1,0 +1,12 @@
+{
+    "parent": "block/cube",
+    "textures": {
+        "particle": "bq_rf:blocks/rf_station_side",
+        "down": "bq_rf:blocks/rf_station_top",
+        "up": "bq_rf:blocks/rf_station_top",
+        "north": "bq_rf:blocks/rf_station_side",
+        "east": "bq_rf:blocks/rf_station_side",
+        "south": "bq_rf:blocks/rf_station_side",
+        "west": "bq_rf:blocks/rf_station_side"
+    }
+}

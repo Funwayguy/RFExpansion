@@ -2,11 +2,11 @@ package bq_rf.client.gui.tasks;
 
 import java.awt.Color;
 import java.text.DecimalFormat;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.MathHelper;
-import org.lwjgl.opengl.GL11;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.TextFormatting;
 import betterquesting.client.gui.GuiQuesting;
 import betterquesting.client.gui.misc.GuiEmbedded;
 import betterquesting.quests.QuestInstance;
@@ -15,7 +15,7 @@ import bq_rf.tasks.TaskRfCharge;
 
 public class GuiTaskRfCharge extends GuiEmbedded
 {
-	ItemStack bottle = new ItemStack(Blocks.redstone_block);
+	ItemStack bottle = new ItemStack(Blocks.REDSTONE_BLOCK);
 	QuestInstance quest;
 	TaskRfCharge task;
 	
@@ -78,14 +78,14 @@ public class GuiTaskRfCharge extends GuiEmbedded
 		
 		int barProg = (int)(MathHelper.clamp_float(progress/(float)task.RF, 0F, 1F) * (barSize - 2));
 		
-		GL11.glPushMatrix();
-		GL11.glEnable(GL11.GL_DEPTH_TEST);
-		GL11.glScalef(2F, 2F, 2F);
+		GlStateManager.pushMatrix();
+		GlStateManager.enableDepth();
+		GlStateManager.scale(2F, 2F, 2F);
 		RenderUtils.RenderItemStack(screen.mc, bottle, (posX + sizeX/2 - 16)/2, (posY + sizeY/2 - 32)/2, "");
-		GL11.glPopMatrix();
+		GlStateManager.popMatrix();
 		GuiQuesting.drawRect(posX + midX - barSize/2, posY + sizeY/2, posX + midX + barSize/2, posY + sizeY/2 + 16, Color.BLACK.getRGB());
 		GuiQuesting.drawRect(posX + midX - barSize/2 + 1, posY + sizeY/2 + 1, posX + midX - barSize/2 + barProg + 1, posY + sizeY/2 + 15, Color.RED.getRGB());
-		String txt = EnumChatFormatting.BOLD + "" + df.format(rf) + suffix1 + "/" + df.format(required) + suffix2 + " RF";
-		screen.mc.fontRenderer.drawString(txt, posX + sizeX/2 - screen.mc.fontRenderer.getStringWidth(txt)/2, posY + sizeY/2 + 4, Color.WHITE.getRGB(), true);
+		String txt = TextFormatting.BOLD + "" + df.format(rf) + suffix1 + "/" + df.format(required) + suffix2 + " RF";
+		screen.mc.fontRendererObj.drawString(txt, posX + sizeX/2 - screen.mc.fontRendererObj.getStringWidth(txt)/2, posY + sizeY/2 + 4, Color.WHITE.getRGB(), true);
 	}
 }

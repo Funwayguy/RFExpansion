@@ -1,0 +1,5 @@
+{
+    "variants": {
+        "normal":{"model":"bq_rf:rf_station"}
+    }
+}
