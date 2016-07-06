@@ -5,6 +5,16 @@ import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.Mod.EventHandler;
+import net.minecraftforge.fml.common.Mod.Instance;
+import net.minecraftforge.fml.common.SidedProxy;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import net.minecraftforge.fml.common.registry.GameRegistry;
 import org.apache.logging.log4j.Logger;
 import betterquesting.core.BetterQuesting;
 import betterquesting.network.PacketTypeRegistry;
@@ -17,22 +27,14 @@ import bq_rf.network.PktHandlerRfTile;
 import bq_rf.network.RfPacketType;
 import bq_rf.tasks.TaskRfCharge;
 import bq_rf.tasks.TaskRfRate;
-import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.Mod.EventHandler;
-import cpw.mods.fml.common.Mod.Instance;
-import cpw.mods.fml.common.SidedProxy;
-import cpw.mods.fml.common.event.FMLInitializationEvent;
-import cpw.mods.fml.common.event.FMLPostInitializationEvent;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.network.NetworkRegistry;
-import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
-import cpw.mods.fml.common.registry.GameRegistry;
 
 @Mod(modid = BQRF.MODID, version = BQRF.VERSION, name = BQRF.NAME, guiFactory = "bq_rf.handlers.ConfigGuiFactory")
 public class BQRF
 {
     public static final String MODID = "bq_rf";
-    public static final String VERSION = "BQ_RF_VER";
+    public static final String VERSION = "CI_MOD_VERSION";
+    public static final String HASH = "CI_MOD_HASH";
+    public static final String BRANCH = "CI_MOD_BRANCH";
     public static final String NAME = "RF Expansion";
     public static final String PROXY = "bq_rf.core.proxies";
     public static final String CHANNEL = "BQ_RF";
@@ -71,6 +73,8 @@ public class BQRF
     	
     	TaskRegistry.RegisterTask(TaskRfCharge.class, new ResourceLocation(MODID + ":rf_charge"));
     	TaskRegistry.RegisterTask(TaskRfRate.class, new ResourceLocation(MODID + ":rf_rate"));
+    	
+    	proxy.registerRenderers();
     }
     
     @EventHandler

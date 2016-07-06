@@ -11,6 +11,6 @@
   "credits": "Thank you Patreons for all your support <3",
   "logoFile": "title.png",
   "screenshots": [],
-  "dependencies": ["betterquesting","CoFHCore"]
+  "dependencies": ["betterquesting"]
 }
 ]

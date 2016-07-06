@@ -11,7 +11,10 @@ import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ITickable;
 import org.apache.logging.log4j.Level;
 import betterquesting.network.PacketAssembly;
 import betterquesting.quests.QuestDatabase;
@@ -23,7 +26,7 @@ import bq_rf.tasks.IRfTask;
 import cofh.api.energy.IEnergyContainerItem;
 import cofh.api.energy.IEnergyReceiver;
 
-public class TileRfStation extends TileEntity implements IEnergyReceiver, ISidedInventory
+public class TileRfStation extends TileEntity implements IEnergyReceiver, ISidedInventory, ITickable
 {
 	ItemStack[] itemStack = new ItemStack[2];
 	boolean needsUpdate = false;
@@ -32,25 +35,25 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	public int taskID;
 	
 	@Override
-	public boolean canConnectEnergy(ForgeDirection dir)
+	public boolean canConnectEnergy(EnumFacing dir)
 	{
 		return true;
 	}
 	
 	@Override
-	public int getEnergyStored(ForgeDirection dir)
+	public int getEnergyStored(EnumFacing dir)
 	{
 		return 0;
 	}
 	
 	@Override
-	public int getMaxEnergyStored(ForgeDirection dir)
+	public int getMaxEnergyStored(EnumFacing dir)
 	{
 		return 0;
 	}
 	
 	@Override
-	public void updateEntity()
+	public void update()
 	{
 		if(worldObj.isRemote)
 		{
@@ -74,7 +77,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 					{
 						q.UpdateClients();
 						reset();
-			    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+			    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimensionId(), getDescriptionPacket());
 					} else
 					{
 						needsUpdate = true;
@@ -93,13 +96,13 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			} else if(t != null && ((TaskBase)t).isComplete(owner))
 			{
 				reset();
-	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimensionId(), getDescriptionPacket());
 			}
 		}
 	}
 	
 	@Override
-	public int receiveEnergy(ForgeDirection dir, int energy, boolean simulate)
+	public int receiveEnergy(EnumFacing dir, int energy, boolean simulate)
 	{
 		QuestInstance q = getQuest();
 		IRfTask t = getTask();
@@ -120,7 +123,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			{
 				q.UpdateClients();
 				reset();
-	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimensionId(), getDescriptionPacket());
 			} else
 			{
 				needsUpdate = true;
@@ -172,12 +175,6 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public ItemStack getStackInSlotOnClosing(int p_70304_1_)
-	{
-		return null;
-	}
-
-	@Override
 	public void setInventorySlotContents(int idx, ItemStack stack)
 	{
 		if(idx < 0 || idx >= itemStack.length)
@@ -189,13 +186,13 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public String getInventoryName()
+	public String getName()
 	{
-		return "RF Submission Station";
+		return BQRF.rfStation.getLocalizedName();
 	}
 
 	@Override
-	public boolean hasCustomInventoryName()
+	public boolean hasCustomName()
 	{
 		return false;
 	}
@@ -218,12 +215,12 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public void openInventory()
+	public void openInventory(EntityPlayer player)
 	{
 	}
 
 	@Override
-	public void closeInventory()
+	public void closeInventory(EntityPlayer player)
 	{
 	}
 
@@ -292,11 +289,13 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
     /**
      * Overridden in a sign to provide the text.
      */
+	@Override
+	@SuppressWarnings("rawtypes")
     public Packet getDescriptionPacket()
     {
         NBTTagCompound nbttagcompound = new NBTTagCompound();
         this.writeToNBT(nbttagcompound);
-        return new S35PacketUpdateTileEntity(this.xCoord, this.yCoord, this.zCoord, 0, nbttagcompound);
+        return new S35PacketUpdateTileEntity(pos, 0, nbttagcompound);
     }
 
     /**
@@ -308,9 +307,10 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
      * @param net The NetworkManager the packet originated from
      * @param pkt The data packet
      */
+	@Override
     public void onDataPacket(NetworkManager net, S35PacketUpdateTileEntity pkt)
     {
-    	this.readFromNBT(pkt.func_148857_g());
+    	this.readFromNBT(pkt.getNbtCompound());
     }
     
     /**
@@ -322,7 +322,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
     	{
     		this.readFromNBT(data);
     		this.markDirty();
-    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimensionId(), getDescriptionPacket());
     	} else
     	{
     		NBTTagCompound payload = new NBTTagCompound();
@@ -373,20 +373,57 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public int[] getAccessibleSlotsFromSide(int side)
+	public int[] getSlotsForFace(EnumFacing side)
 	{
 		return new int[]{0,1};
 	}
 
 	@Override
-	public boolean canInsertItem(int slot, ItemStack stack, int side)
+	public boolean canInsertItem(int slot, ItemStack stack, EnumFacing side)
 	{
-		return slot == 0;
+		return slot == 0 && isItemValidForSlot(slot, stack);
 	}
 
 	@Override
-	public boolean canExtractItem(int slot, ItemStack stack, int side)
+	public boolean canExtractItem(int slot, ItemStack stack, EnumFacing side)
 	{
 		return slot == 1;
+	}
+
+	@Override
+	public ItemStack removeStackFromSlot(int index)
+	{
+		ItemStack stack = itemStack[index];
+		itemStack[index] = null;
+		return stack;
+	}
+
+	@Override
+	public int getField(int id)
+	{
+		return 0;
+	}
+
+	@Override
+	public void setField(int id, int value)
+	{
+	}
+
+	@Override
+	public int getFieldCount()
+	{
+		return 0;
+	}
+
+	@Override
+	public void clear()
+	{
+		itemStack = new ItemStack[2];
+	}
+
+	@Override
+	public IChatComponent getDisplayName()
+	{
+		return new ChatComponentText(BQRF.rfStation.getLocalizedName());
 	}
 }
