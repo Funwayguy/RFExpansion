@@ -4,6 +4,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.renderer.texture.IIconRegister;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -11,7 +12,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
-import betterquesting.core.BetterQuesting;
 import bq_rf.core.BQRF;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -26,7 +26,7 @@ public class BlockRfStation extends BlockContainer
 		this.setHardness(1);
 		this.setBlockName("bq_rf.rf_station");
 		this.setBlockTextureName("bq_rf:rf_station");
-		this.setCreativeTab(BetterQuesting.tabQuesting);
+		this.setCreativeTab(CreativeTabs.tabRedstone);
 	}
 
 	@Override

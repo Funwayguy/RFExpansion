@@ -3,7 +3,6 @@ package bq_rf.block;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.ISidedInventory;
-import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
@@ -13,10 +12,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.util.ForgeDirection;
 import org.apache.logging.log4j.Level;
-import betterquesting.network.PacketAssembly;
-import betterquesting.quests.QuestDatabase;
-import betterquesting.quests.QuestInstance;
-import betterquesting.quests.tasks.TaskBase;
+import betterquesting.api.api.ApiReference;
+import betterquesting.api.api.QuestingAPI;
+import betterquesting.api.network.QuestingPacket;
+import betterquesting.api.questing.IQuest;
+import betterquesting.api.questing.tasks.ITask;
 import bq_rf.core.BQRF;
 import bq_rf.network.RfPacketType;
 import bq_rf.tasks.IRfTask;
@@ -57,28 +57,32 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			return;
 		}
 		
-		QuestInstance q = getQuest();
+		IQuest q = getQuest();
 		IRfTask t = getTask();
 		
 		if(worldObj.getTotalWorldTime()%10 == 0)
 		{
 			if(owner != null && q != null && t != null && owner != null && itemStack[0] != null)
 			{
-				if(isItemValidForSlot(0, itemStack[0]))
+				ItemStack inStack = itemStack[0].copy();
+				
+				if(isItemValidForSlot(0, inStack))
 				{
-					Slot sIn = new Slot(this, 0, 0, 0);
-					Slot sOut = new Slot(this, 1, 0, 0);
-					t.submitItem(q, owner, sIn, sOut);
+					itemStack[0] = t.submitItem(q, owner, inStack);
 					
-					if(((TaskBase)t).isComplete(owner))
+					if(((ITask)t).isComplete(owner))
 					{
-						q.UpdateClients();
+						QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
 						reset();
 			    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
 					} else
 					{
 						needsUpdate = true;
 					}
+				} else
+				{
+					itemStack[1] = inStack;
+					itemStack[0] = null;
 				}
 			}
 			
@@ -88,9 +92,9 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 				
 				if(q != null && !worldObj.isRemote)
 				{
-					q.UpdateClients();
+					QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
 				}
-			} else if(t != null && ((TaskBase)t).isComplete(owner))
+			} else if(t != null && ((ITask)t).isComplete(owner))
 			{
 				reset();
 	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
@@ -101,7 +105,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public int receiveEnergy(ForgeDirection dir, int energy, boolean simulate)
 	{
-		QuestInstance q = getQuest();
+		IQuest q = getQuest();
 		IRfTask t = getTask();
 		
 		if(q == null || t == null || energy <= 0)
@@ -116,9 +120,9 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		{
 			remainder = t.submitEnergy(q, owner, energy);
 		
-			if(((TaskBase)t).isComplete(owner))
+			if(((ITask)t).isComplete(owner))
 			{
-				q.UpdateClients();
+				QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
 				reset();
 	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
 			} else
@@ -230,40 +234,50 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public boolean isItemValidForSlot(int idx, ItemStack stack)
 	{
-		if(idx != 0)
+		if(idx != 0 || stack == null)
+		{
+			return false;
+		} if(!(stack.getItem() instanceof IEnergyContainerItem))
 		{
 			return false;
 		}
 		
-		return stack != null && stack.getItem() instanceof IEnergyContainerItem;
+		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
+		
+		return eItem.getEnergyStored(stack) > 0;
 	}
 	
-	public QuestInstance getQuest()
+	public IQuest getQuest()
 	{
 		if(questID < 0)
 		{
 			return null;
 		} else
 		{
-			return QuestDatabase.getQuestByID(questID);
+			return QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+		}
+	}
+	
+	public ITask getRawTask()
+	{
+		IQuest q = getQuest();
+		
+		if(q == null || taskID < 0 || taskID >= q.getTasks().size())
+		{
+			return null;
+		} else
+		{
+			return q.getTasks().getValue(taskID);
 		}
 	}
 	
 	public IRfTask getTask()
 	{
-		QuestInstance q = getQuest();
-		
-		if(q == null || taskID < 0 || taskID >= q.tasks.size())
-		{
-			return null;
-		} else
-		{
-			TaskBase t = q.tasks.get(taskID);
-			return t instanceof IRfTask? (IRfTask)t : null;
-		}
+		ITask t = getRawTask();
+		return t instanceof IRfTask? (IRfTask)t : null;
 	}
 	
-	public void setupTask(UUID owner, QuestInstance quest, IRfTask task)
+	public void setupTask(UUID owner, IQuest quest, ITask task)
 	{
 		if(owner == null || quest == null || task == null)
 		{
@@ -271,8 +285,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		}
 		
 		this.owner = owner;
-		this.questID = quest.questID;
-		this.taskID = quest.tasks.indexOf(task);
+		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getKey(quest);
+		this.taskID = quest.getTasks().getKey(task);
 		this.markDirty();
 	}
 	
@@ -329,8 +343,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
     		NBTTagCompound tileData = new NBTTagCompound();
     		this.writeToNBT(tileData);
     		payload.setTag("tile", tileData);
-    		payload.setInteger("ID", 0);
-    		PacketAssembly.SendToServer(RfPacketType.RF_TILE.GetLocation(), payload);
+    		QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToServer(new QuestingPacket(RfPacketType.RF_TILE.GetLocation(), payload));
     	}
     }
 	

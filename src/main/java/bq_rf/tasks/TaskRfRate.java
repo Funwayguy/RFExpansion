@@ -1,51 +1,99 @@
 package bq_rf.tasks;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import org.apache.logging.log4j.Level;
-import betterquesting.client.gui.GuiQuesting;
-import betterquesting.client.gui.misc.GuiEmbedded;
-import betterquesting.party.PartyInstance;
-import betterquesting.party.PartyManager;
-import betterquesting.party.PartyInstance.PartyMember;
-import betterquesting.quests.QuestInstance;
-import betterquesting.quests.tasks.TaskBase;
-import betterquesting.quests.tasks.advanced.IProgressionTask;
-import betterquesting.utils.JsonHelper;
+import betterquesting.api.api.ApiReference;
+import betterquesting.api.api.QuestingAPI;
+import betterquesting.api.client.gui.misc.IGuiEmbedded;
+import betterquesting.api.enums.EnumSaveType;
+import betterquesting.api.jdoc.IJsonDoc;
+import betterquesting.api.properties.NativeProps;
+import betterquesting.api.questing.IQuest;
+import betterquesting.api.questing.party.IParty;
+import betterquesting.api.questing.tasks.IProgression;
+import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api.utils.JsonHelper;
 import bq_rf.client.gui.tasks.GuiTaskRfRate;
 import bq_rf.core.BQRF;
+import bq_rf.tasks.factory.FactoryTaskRfRate;
 import cofh.api.energy.IEnergyContainerItem;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
-public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<Integer>
+public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>
 {
-	public long globalLast = 0L;
-	public int globalProg = 0;
-	public HashMap<UUID, Long> lastInput = new HashMap<UUID, Long>();
-	public HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
+	private ArrayList<UUID> completeUsers = new ArrayList<UUID>();
+	private HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
+	
 	public int rate = 100000;
 	public int duration = 200;
 	public boolean delExcess = false;
 	
+	public HashMap<UUID, Long> lastInput = new HashMap<UUID, Long>();
+	public long globalLast = 0L;
+	public int globalProg = 0;
+	
 	@Override
-	public void submitItem(QuestInstance quest, UUID owner, Slot input, Slot output)
+	public ResourceLocation getFactoryID()
 	{
-		ItemStack stack = input.getStack();
-		
+		return FactoryTaskRfRate.INSTANCE.getRegistryName();
+	}
+	
+	@Override
+	public String getUnlocalisedName()
+	{
+		return BQRF.MODID + ".task.rf_rate";
+	}
+	
+	@Override
+	public boolean isComplete(UUID uuid)
+	{
+		return completeUsers.contains(uuid);
+	}
+	
+	@Override
+	public void setComplete(UUID uuid)
+	{
+		if(!completeUsers.contains(uuid))
+		{
+			completeUsers.add(uuid);
+		}
+	}
+
+	@Override
+	public void resetUser(UUID uuid)
+	{
+		userProgress.remove(uuid);
+		completeUsers.remove(uuid);
+	}
+
+	@Override
+	public void resetAll()
+	{
+		userProgress.clear();
+		completeUsers.clear();
+	}
+	
+	@Override
+	public ItemStack submitItem(IQuest quest, UUID owner, ItemStack stack)
+	{
 		if(stack == null || isComplete(owner) || !(stack.getItem() instanceof IEnergyContainerItem))
 		{
-			return;
+			return stack;
 		}
 		
 		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
 		
-		int progress = GetUserProgress(owner);
+		int progress = getUsersProgress(owner);
 		
 		int extracted = eItem.extractEnergy(stack, delExcess? Integer.MAX_VALUE : rate, true);
 		
@@ -58,31 +106,27 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			globalLast = tmp;
 		}
 		
-		SetUserProgress(owner, progress);
+		setUserProgress(owner, progress);
 		
-		if(eItem.getEnergyStored(stack) <= 0)
-		{
-			output.putStack(stack);
-			input.putStack(null);
-		}
-		
-		int total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
-			setCompletion(owner, true);
+			setComplete(owner);
 		}
+		
+		return stack;
 	}
 	
 	@Override
-	public int submitEnergy(QuestInstance quest, UUID owner, int amount)
+	public int submitEnergy(IQuest quest, UUID owner, int amount)
 	{
 		if(isComplete(owner))
 		{
 			return amount;
 		}
 		
-		int progress = GetUserProgress(owner);
+		int progress = getUsersProgress(owner);
 		
 		if(amount >= rate)
 		{
@@ -93,53 +137,53 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			globalLast = tmp;
 		}
 		
-		SetUserProgress(owner, progress);
+		setUserProgress(owner, progress);
 		
-		int total = quest == null || !quest.globalQuest? GetPartyProgress(owner) : GetGlobalProgress();
+		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
-			setCompletion(owner, true);
+			setComplete(owner);
 		}
 		
 		return delExcess? 0 : (amount - rate);
 	}
 	
 	@Override
-	public void Update(QuestInstance quest, EntityPlayer player)
+	public void update(EntityPlayer player, IQuest quest)
 	{
 		if(isComplete(player.getUniqueID()))
 		{
 			return;
 		}
 		
-		int total = quest == null || !quest.globalQuest? GetPartyProgress(player.getUniqueID()) : GetGlobalProgress();
+		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(player.getUniqueID()) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
-			setCompletion(player.getUniqueID(), true);
+			setComplete(player.getUniqueID());
 			return;
 		}
 		
-		long last = quest == null || !quest.globalQuest? GetUserLast(player.getUniqueID()) : GetGlobalLast();
+		long last = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? GetUserLast(player.getUniqueID()) : GetGlobalLast();
 		
 		if(last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
 		{
-			int progress = GetUserProgress(player.getUniqueID());
+			int progress = getUsersProgress(player.getUniqueID());
 			progress = Math.max(0, progress - 1);
-			SetUserProgress(player.getUniqueID(), progress);
+			setUserProgress(player.getUniqueID(), progress);
 			globalProg = Math.max(0, globalProg - 1);
 		}
 	}
 	
 	@Override
-	public void Detect(QuestInstance quest, EntityPlayer player)
+	public void detect(EntityPlayer player, IQuest quest)
 	{
-		int total = quest == null || !quest.globalQuest? GetPartyProgress(player.getUniqueID()) : GetGlobalProgress();
+		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(player.getUniqueID()) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
-			setCompletion(player.getUniqueID(), true);
+			setComplete(player.getUniqueID());
 		}
 	}
 	
@@ -154,58 +198,59 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 		return globalLast;
 	}
 	
-	/**
-	 * Called by repeatable quests to reset progress for the next attempt
-	 */
 	@Override
-	public void ResetProgress(UUID uuid)
+	public JsonObject writeToJson(JsonObject json, EnumSaveType saveType)
 	{
-		super.ResetProgress(uuid);
-		userProgress.remove(uuid);
-	}
-	
-	/**
-	 * Clear all progress for all users
-	 */
-	@Override
-	public void ResetAllProgress()
-	{
-		super.ResetAllProgress();
-		userProgress = new HashMap<UUID,Integer>();
-		globalProg = 0;
-	}
-	
-	@Override
-	public void writeToJson(JsonObject json)
-	{
-		super.writeToJson(json);
+		if(saveType == EnumSaveType.PROGRESS)
+		{
+			return this.writeProgressToJson(json);
+		} else if(saveType != EnumSaveType.CONFIG)
+		{
+			return json;
+		}
 		
 		json.addProperty("rf", rate);
 		json.addProperty("duration", duration);
 		json.addProperty("voidExcess", delExcess);
+		
+		return json;
 	}
 	
 	@Override
-	public void readFromJson(JsonObject json)
+	public void readFromJson(JsonObject json, EnumSaveType saveType)
 	{
-		super.readFromJson(json);
+		if(saveType == EnumSaveType.PROGRESS)
+		{
+			this.readProgressFromJson(json);
+			return;
+		} else if(saveType != EnumSaveType.CONFIG)
+		{
+			return;
+		}
 		
 		rate = JsonHelper.GetNumber(json, "rf", 100000).intValue();
 		duration = JsonHelper.GetNumber(json, "duration", 200).intValue();
 		delExcess = JsonHelper.GetBoolean(json, "voidExcess", delExcess);
-		
-		if(json.has("userProgress"))
-		{
-			jMig = json;
-		}
 	}
 	
-	JsonObject jMig = null;
-	
-	@Override
-	public void readProgressFromJson(JsonObject json)
+	private void readProgressFromJson(JsonObject json)
 	{
-		super.readProgressFromJson(json);
+		completeUsers = new ArrayList<UUID>();
+		for(JsonElement entry : JsonHelper.GetArray(json, "completeUsers"))
+		{
+			if(entry == null || !entry.isJsonPrimitive())
+			{
+				continue;
+			}
+			
+			try
+			{
+				completeUsers.add(UUID.fromString(entry.getAsString()));
+			} catch(Exception e)
+			{
+				BQRF.logger.log(Level.ERROR, "Unable to load UUID for task", e);
+			}
+		}
 		
 		userProgress = new HashMap<UUID,Integer>();
 		for(JsonElement entry : JsonHelper.GetArray(json, "userProgress"))
@@ -229,10 +274,14 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 		}
 	}
 	
-	@Override
-	public void writeProgressToJson(JsonObject json)
+	private JsonObject writeProgressToJson(JsonObject json)
 	{
-		super.writeProgressToJson(json);
+		JsonArray jArray = new JsonArray();
+		for(UUID uuid : completeUsers)
+		{
+			jArray.add(new JsonPrimitive(uuid.toString()));
+		}
+		json.add("completeUsers", jArray);
 		
 		JsonArray progArray = new JsonArray();
 		for(Entry<UUID,Integer> entry : userProgress.entrySet())
@@ -249,53 +298,49 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 			progArray.add(pJson);
 		}
 		json.add("userProgress", progArray);
+		
+		return json;
 	}
 	
 	@Override
-	public GuiEmbedded getGui(QuestInstance quest, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
-	{
-		return new GuiTaskRfRate(quest, this, screen, posX, posY, sizeX, sizeY);
-	}
-	
-	@Override
-	public String getUnlocalisedName()
-	{
-		return BQRF.MODID + ".task.rf_rate";
-	}
-	
-	@Override
-	public void SetUserProgress(UUID uuid, Integer progress)
+	public void setUserProgress(UUID uuid, Integer progress)
 	{
 		userProgress.put(uuid, progress);
 	}
 	
 	@Override
-	public Integer GetUserProgress(UUID uuid)
-	{
-		Integer i = userProgress.get(uuid);
-		return i == null? 0 : i;
-	}
-	
-	@Override
-	public Integer GetPartyProgress(UUID uuid)
+	public Integer getUsersProgress(UUID... uuid)
 	{
 		int total = 0;
 		
-		PartyInstance party = PartyManager.GetParty(uuid);
+		for(UUID mem : uuid)
+		{
+			Integer n = userProgress.get(mem);
+			total += n == null? 0 : n;
+		}
+		
+		return total;
+	}
+	
+	public Integer getPartyProgress(UUID uuid)
+	{
+		int total = 0;
+		
+		IParty party = QuestingAPI.getAPI(ApiReference.PARTY_DB).getUserParty(uuid);
 		
 		if(party == null)
 		{
-			return GetUserProgress(uuid);
+			return getUsersProgress(uuid);
 		} else
 		{
-			for(PartyMember mem : party.GetMembers())
+			for(UUID mem : party.getMembers())
 			{
-				if(mem != null && mem.GetPrivilege() <= 0)
+				if(mem != null && party.getStatus(mem).ordinal() <= 0)
 				{
 					continue;
 				}
 				
-				total += GetUserProgress(mem.userID);
+				total += getUsersProgress(mem);
 			}
 		}
 		
@@ -303,8 +348,32 @@ public class TaskRfRate extends TaskBase implements IRfTask, IProgressionTask<In
 	}
 	
 	@Override
-	public Integer GetGlobalProgress()
+	public Integer getGlobalProgress()
 	{
 		return globalProg;
+	}
+	
+	@Override
+	public IGuiEmbedded getTaskGui(int posX, int posY, int sizeX, int sizeY, IQuest quest)
+	{
+		return new GuiTaskRfRate(quest, this, posX, posY, sizeX, sizeY);
+	}
+	
+	@Override
+	public GuiScreen getTaskEditor(GuiScreen screen, IQuest quest)
+	{
+		return null;
+	}
+
+	@Override
+	public float getParticipation(UUID uuid)
+	{
+		return 0;
+	}
+
+	@Override
+	public IJsonDoc getDocumentation()
+	{
+		return null;
 	}
 }

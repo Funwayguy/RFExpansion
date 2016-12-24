@@ -2,39 +2,52 @@ package bq_rf.client.gui.tasks;
 
 import java.awt.Color;
 import java.text.DecimalFormat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import org.lwjgl.opengl.GL11;
-import betterquesting.client.gui.GuiQuesting;
-import betterquesting.client.gui.misc.GuiEmbedded;
-import betterquesting.quests.QuestInstance;
-import betterquesting.utils.RenderUtils;
+import betterquesting.api.client.gui.GuiElement;
+import betterquesting.api.client.gui.misc.IGuiEmbedded;
+import betterquesting.api.properties.NativeProps;
+import betterquesting.api.questing.IQuest;
+import betterquesting.api.utils.RenderUtils;
 import bq_rf.tasks.TaskRfRate;
 
-public class GuiTaskRfRate extends GuiEmbedded
+public class GuiTaskRfRate extends GuiElement implements IGuiEmbedded
 {
-	ItemStack bottle = new ItemStack(Blocks.redstone_block);
-	QuestInstance quest;
-	TaskRfRate task;
+	private final Minecraft mc;
+	private int posX = 0;
+	private int posY = 0;
+	private int sizeX = 0;
+	private int sizeY = 0;
 	
-	public GuiTaskRfRate(QuestInstance quest, TaskRfRate task, GuiQuesting screen, int posX, int posY, int sizeX, int sizeY)
+	private final ItemStack bottle = new ItemStack(Blocks.redstone_block);
+	private IQuest quest;
+	private TaskRfRate task;
+	
+	public GuiTaskRfRate(IQuest quest, TaskRfRate task, int posX, int posY, int sizeX, int sizeY)
 	{
-		super(screen, posX, posY, sizeX, sizeY);
+		this.mc = Minecraft.getMinecraft();
+		this.posX = posX;
+		this.posY = posY;
+		this.sizeX = sizeX;
+		this.sizeY = sizeY;
+		
 		this.task = task;
 		this.quest = quest;
 	}
 	
 	@Override
-	public void drawGui(int mx, int my, float partialTick)
+	public void drawBackground(int mx, int my, float partialTick)
 	{
 		int barSize = Math.min(sizeX/2, 128);
 		float required = task.rate;
 		int midX = sizeX/2;
 		String suffix2 = "";
 		
-		long progress = quest == null || !quest.globalQuest? task.GetPartyProgress(screen.mc.thePlayer.getUniqueID()) : task.GetGlobalProgress();
+		long progress = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? task.getPartyProgress(mc.thePlayer.getUniqueID()) : task.getGlobalProgress();
 		
 		if(required >= 1000000000)
 		{
@@ -57,11 +70,31 @@ public class GuiTaskRfRate extends GuiEmbedded
 		GL11.glPushMatrix();
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		GL11.glScalef(2F, 2F, 2F);
-		RenderUtils.RenderItemStack(screen.mc, bottle, (posX + sizeX/2 - 16)/2, (posY + sizeY/2 - 32)/2, "");
+		RenderUtils.RenderItemStack(mc, bottle, (posX + sizeX/2 - 16)/2, (posY + sizeY/2 - 32)/2, "");
 		GL11.glPopMatrix();
-		GuiQuesting.drawRect(posX + midX - barSize/2, posY + sizeY/2, posX + midX + barSize/2, posY + sizeY/2 + 16, Color.BLACK.getRGB());
-		GuiQuesting.drawRect(posX + midX - barSize/2 + 1, posY + sizeY/2 + 1, posX + midX - barSize/2 + barProg + 1, posY + sizeY/2 + 15, Color.RED.getRGB());
+		drawRect(posX + midX - barSize/2, posY + sizeY/2, posX + midX + barSize/2, posY + sizeY/2 + 16, Color.BLACK.getRGB());
+		drawRect(posX + midX - barSize/2 + 1, posY + sizeY/2 + 1, posX + midX - barSize/2 + barProg + 1, posY + sizeY/2 + 15, Color.RED.getRGB());
 		String txt = EnumChatFormatting.BOLD + df.format(required) + suffix2 + " RF/t";
-		screen.mc.fontRenderer.drawString(txt, posX + sizeX/2 - screen.mc.fontRenderer.getStringWidth(txt)/2, posY + sizeY/2 + 4, Color.WHITE.getRGB(), true);
+		mc.fontRenderer.drawString(txt, posX + sizeX/2 - mc.fontRenderer.getStringWidth(txt)/2, posY + sizeY/2 + 4, Color.WHITE.getRGB(), true);
+	}
+
+	@Override
+	public void drawForeground(int mx, int my, float partialTick)
+	{
+	}
+
+	@Override
+	public void onMouseClick(int mx, int my, int click)
+	{
+	}
+
+	@Override
+	public void onMouseScroll(int mx, int my, int scroll)
+	{
+	}
+
+	@Override
+	public void onKeyTyped(char c, int keyCode)
+	{
 	}
 }
