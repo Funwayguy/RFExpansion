@@ -3,6 +3,7 @@ package bq_rf.block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.ItemStack;
@@ -12,7 +13,6 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import betterquesting.core.BetterQuesting;
 import bq_rf.core.BQRF;
 
 public class BlockRfStation extends BlockContainer
@@ -22,7 +22,7 @@ public class BlockRfStation extends BlockContainer
 		super(Material.IRON);
 		this.setHardness(1);
 		this.setUnlocalizedName(BQRF.MODID + ".rf_station");
-		this.setCreativeTab(BetterQuesting.tabQuesting);
+		this.setCreativeTab(CreativeTabs.REDSTONE);
 	}
 
 	@Override
@@ -52,7 +52,8 @@ public class BlockRfStation extends BlockContainer
     	}
         return true;
     }
-
+	
+	@Override
     public void breakBlock(World world, BlockPos pos, IBlockState state)
     {
         TileRfStation tileStation = (TileRfStation)world.getTileEntity(pos);

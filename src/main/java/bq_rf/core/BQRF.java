@@ -1,10 +1,8 @@
 package bq_rf.core;
 
 import net.minecraft.block.Block;
-import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.Mod;
@@ -18,17 +16,10 @@ import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import org.apache.logging.log4j.Logger;
-import betterquesting.core.BetterQuesting;
-import betterquesting.network.PacketTypeRegistry;
-import betterquesting.quests.tasks.TaskRegistry;
 import bq_rf.block.BlockRfStation;
 import bq_rf.block.TileRfStation;
 import bq_rf.core.proxies.CommonProxy;
 import bq_rf.handlers.ConfigHandler;
-import bq_rf.network.PktHandlerRfTile;
-import bq_rf.network.RfPacketType;
-import bq_rf.tasks.TaskRfCharge;
-import bq_rf.tasks.TaskRfRate;
 
 @Mod(modid = BQRF.MODID, version = BQRF.VERSION, name = BQRF.NAME, guiFactory = "bq_rf.handlers.ConfigGuiFactory")
 public class BQRF
@@ -61,8 +52,6 @@ public class BQRF
     	ConfigHandler.initConfigs();
     	
     	proxy.registerHandlers();
-    	
-    	PacketTypeRegistry.RegisterType(new PktHandlerRfTile(), RfPacketType.RF_TILE.GetLocation());
     }
     
     @EventHandler
@@ -73,16 +62,12 @@ public class BQRF
     	registerBlock(rfStation, "rf_station");
     	GameRegistry.registerTileEntity(TileRfStation.class, "rf_station");
     	
-    	TaskRegistry.RegisterTask(TaskRfCharge.class, new ResourceLocation(MODID + ":rf_charge"));
-    	TaskRegistry.RegisterTask(TaskRfRate.class, new ResourceLocation(MODID + ":rf_rate"));
-    	
     	proxy.registerRenderers();
     }
     
     @EventHandler
     public void postInit(FMLPostInitializationEvent event)
     {
-    	GameRegistry.addShapedRecipe(new ItemStack(rfStation), "IRI", "RSR", "IRI", 'I', new ItemStack(Items.IRON_INGOT), 'R', new ItemStack(Items.REDSTONE), 'S', new ItemStack(BetterQuesting.submitStation));
     }
     
     /**

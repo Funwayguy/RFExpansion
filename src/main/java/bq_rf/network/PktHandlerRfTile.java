@@ -3,14 +3,21 @@ package bq_rf.network;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
-import betterquesting.network.handlers.PktHandler;
+import betterquesting.api.network.IPacketHandler;
 import bq_rf.block.TileRfStation;
 
-public class PktHandlerRfTile extends PktHandler
+public class PktHandlerRfTile implements IPacketHandler
 {
 	@Override
-	public void handleServer(EntityPlayerMP sender, NBTTagCompound data)
+	public ResourceLocation getRegistryName()
+	{
+		return RfPacketType.RF_TILE.GetLocation();
+	}
+	
+	@Override
+	public void handleServer(NBTTagCompound data, EntityPlayerMP sender)
 	{
 		if(sender == null)
 		{
