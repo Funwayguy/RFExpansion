@@ -44,6 +44,8 @@ public class CommonProxy
     	tskReg.registerTask(FactoryTaskRfCharge.INSTANCE);
     	tskReg.registerTask(FactoryTaskRfRate.INSTANCE);
     	
+    	BQRF.rfStation.setCreativeTab(QuestingAPI.getAPI(ApiReference.CREATIVE_TAB));
+    	
     	GameRegistry.addShapedRecipe(new ItemStack(BQRF.rfStation), "IRI", "RSR", "IRI", 'I', new ItemStack(Items.iron_ingot), 'R', new ItemStack(Items.redstone), 'S', new ItemStack((Block)Block.blockRegistry.getObject("betterquesting:submit_station")));
 	}
 }

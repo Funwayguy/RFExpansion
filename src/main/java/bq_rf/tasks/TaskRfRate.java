@@ -19,6 +19,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.api.questing.tasks.IProgression;
 import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api.questing.tasks.ITickableTask;
 import betterquesting.api.utils.JsonHelper;
 import bq_rf.client.gui.tasks.GuiTaskRfRate;
 import bq_rf.core.BQRF;
@@ -29,7 +30,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>
+public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITickableTask
 {
 	private ArrayList<UUID> completeUsers = new ArrayList<UUID>();
 	private HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
@@ -150,7 +151,11 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>
 	}
 	
 	@Override
-	public void update(EntityPlayer player, IQuest quest)
+	@Deprecated
+	public void update(EntityPlayer player, IQuest quest){}
+	
+	@Override
+	public void updateTask(EntityPlayer player, IQuest quest)
 	{
 		if(isComplete(player.getUniqueID()))
 		{

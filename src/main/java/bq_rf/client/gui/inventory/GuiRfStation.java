@@ -2,42 +2,42 @@ package bq_rf.client.gui.inventory;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.UUID;
+import java.util.List;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.EnumChatFormatting;
 import org.lwjgl.opengl.GL11;
-import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.client.gui.controls.GuiButtonThemed;
 import betterquesting.api.client.gui.misc.IGuiEmbedded;
 import betterquesting.api.client.gui.misc.INeedsRefresh;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api.utils.QuestCache;
 import bq_rf.block.TileRfStation;
 import bq_rf.tasks.IRfTask;
 
 public class GuiRfStation extends GuiContainerThemed implements INeedsRefresh
 {
-	TileRfStation tile;
-	ArrayList<IQuest> activeQuests = new ArrayList<IQuest>();
-	int selQuest = 0;
-	IQuest quest;
-	int selTask = 0;
-	ITask task;
+	private final TileRfStation tile;
+	private final ContainerRfStation subContainer;
 	
-	IGuiEmbedded taskUI;
-	GuiButtonThemed btnSelect;
-	GuiButtonThemed btnRemove;
+	private List<IQuest> activeQuests = new ArrayList<IQuest>();
+	private int selQuest = 0;
+	private int selTask = 0;
+	private IQuest quest;
+	private ITask task;
 	
-	ContainerRfStation subContainer;
+	private IGuiEmbedded taskUI;
+	private GuiButtonThemed btnSelect;
+	private GuiButtonThemed btnRemove;
 	
 	public GuiRfStation(GuiScreen parent, InventoryPlayer invo, TileRfStation tile)
 	{
 		super(parent, "bq_rf.title.rf_station", new ContainerRfStation(invo, tile));
-		subContainer = (ContainerRfStation)this.inventorySlots;
+		this.subContainer = (ContainerRfStation)this.inventorySlots;
 		this.tile = tile;
 		this.setMaxSize(500, 300);
 	}
@@ -53,18 +53,7 @@ public class GuiRfStation extends GuiContainerThemed implements INeedsRefresh
 			return;
 		}
 		
-		selQuest = 0;
-		selTask = 0;
-		
-		activeQuests.clear();
-		UUID pID = QuestingAPI.getQuestingUUID(mc.thePlayer);
-		for(IQuest q : QuestingAPI.getAPI(ApiReference.QUEST_DB).getAllValues())
-		{
-			if(q.isUnlocked(pID) && !q.isComplete(pID))
-			{
-				activeQuests.add(q);
-			}
-		}
+		activeQuests = QuestCache.INSTANCE.getActiveQuests(QuestingAPI.getQuestingUUID(mc.thePlayer));
 		
 		buttonList.add(new GuiButtonThemed(1, guiLeft + sizeX/2 - 120, guiTop + 32, 20, 20, "<")); // Prev Quest
 		buttonList.add(new GuiButtonThemed(2, guiLeft + sizeX/2 + 100, guiTop + 32, 20, 20, ">")); // Next Quest

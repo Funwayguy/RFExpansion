@@ -19,6 +19,7 @@ import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.api.questing.tasks.IProgression;
 import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api.questing.tasks.ITickableTask;
 import betterquesting.api.utils.JsonHelper;
 import bq_rf.client.gui.tasks.GuiTaskRfCharge;
 import bq_rf.core.BQRF;
@@ -31,7 +32,7 @@ import com.google.gson.JsonPrimitive;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
+public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>, ITickableTask
 {
 	private ArrayList<UUID> completeUsers = new ArrayList<UUID>();
 	private HashMap<UUID, Long> userProgress = new HashMap<UUID, Long>();
@@ -79,7 +80,11 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 	}
 	
 	@Override
-	public void update(EntityPlayer player, IQuest quest)
+	@Deprecated
+	public void update(EntityPlayer player, IQuest quest){}
+	
+	@Override
+	public void updateTask(EntityPlayer player, IQuest quest)
 	{
 		if(player.ticksExisted%20 == 0 && !QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE))
 		{
