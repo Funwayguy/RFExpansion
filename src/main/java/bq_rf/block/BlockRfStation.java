@@ -3,7 +3,6 @@ package bq_rf.block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
-import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.ItemStack;
@@ -22,7 +21,6 @@ public class BlockRfStation extends BlockContainer
 		super(Material.IRON);
 		this.setHardness(1);
 		this.setUnlocalizedName(BQRF.MODID + ".rf_station");
-		this.setCreativeTab(CreativeTabs.REDSTONE);
 	}
 
 	@Override
