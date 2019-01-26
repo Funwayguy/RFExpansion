@@ -1,40 +1,50 @@
 package bq_rf.block;
 
-import java.util.UUID;
+import betterquesting.api.api.ApiReference;
+import betterquesting.api.api.QuestingAPI;
+import betterquesting.api.network.QuestingPacket;
+import betterquesting.api.properties.NativeProps;
+import betterquesting.api.questing.IQuest;
+import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api2.cache.CapabilityProviderQuestCache;
+import betterquesting.api2.cache.QuestCache;
+import bq_rf.core.BQRF;
+import bq_rf.network.RfPacketType;
+import bq_rf.tasks.IRfTask;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.ISidedInventory;
+import net.minecraft.inventory.ItemStackHelper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.energy.CapabilityEnergy;
+import net.minecraftforge.energy.IEnergyStorage;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
-import org.apache.logging.log4j.Level;
-import betterquesting.api.api.ApiReference;
-import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.network.QuestingPacket;
-import betterquesting.api.questing.IQuest;
-import betterquesting.api.questing.tasks.ITask;
-import bq_rf.core.BQRF;
-import bq_rf.network.RfPacketType;
-import bq_rf.tasks.IRfTask;
-import cofh.api.energy.IEnergyContainerItem;
-import cofh.api.energy.IEnergyReceiver;
 
-public class TileRfStation extends TileEntity implements IEnergyReceiver, ISidedInventory, ITickable
+import javax.annotation.Nonnull;
+import java.util.UUID;
+
+public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedInventory, ITickable
 {
 	private final IItemHandler itemHandler;
-	private ItemStack[] itemStack = new ItemStack[2];
+	private NonNullList<ItemStack> itemStacks = NonNullList.withSize(2, ItemStack.EMPTY);
 	boolean needsUpdate = false;
 	public UUID owner;
 	public int questID;
 	public int taskID;
+	
+	private IQuest qCached;
 	
 	public TileRfStation()
 	{
@@ -44,57 +54,42 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 	
 	@Override
-	public boolean canConnectEnergy(EnumFacing dir)
-	{
-		return true;
-	}
-	
-	@Override
-	public int getEnergyStored(EnumFacing dir)
-	{
-		return 0;
-	}
-	
-	@Override
-	public int getMaxEnergyStored(EnumFacing dir)
-	{
-		return 0;
-	}
-	
-	@Override
 	public void update()
 	{
-		if(worldObj.isRemote)
-		{
-			return;
-		}
+		if(world.isRemote || !isSetup() || QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE)) return;
 		
-		IQuest q = getQuest();
-		IRfTask t = getTask();
-		
-		if(worldObj.getTotalWorldTime()%10 == 0)
+		long wtt = world.getTotalWorldTime();
+		if(wtt%10 == 0 && owner != null)
 		{
-			if(owner != null && q != null && t != null && owner != null && itemStack[0] != null)
+		    if(wtt%20 == 0) qCached = null;
+            IQuest q = getQuest();
+            IRfTask t = getTask();
+            MinecraftServer server = world.getMinecraftServer();
+            EntityPlayerMP player = server == null ? null : server.getPlayerList().getPlayerByUUID(owner);
+            QuestCache qc = player == null ? null : player.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
+            
+			if(q != null && t != null && !itemStacks.get(0).isEmpty() && itemStacks.get(1).isEmpty())
 			{
-				ItemStack inStack = itemStack[0].copy();
+				ItemStack inStack = itemStacks.get(0).copy();
+				ItemStack beforeStack = itemStacks.get(0).copy();
 				
 				if(isItemValidForSlot(0, inStack))
 				{
-					itemStack[0] = t.submitItem(q, owner, inStack);
+					itemStacks.set(0, t.submitItem(q, owner, inStack));
 					
-					if(((ITask)t).isComplete(owner))
+					if(t.isComplete(owner))
 					{
-						QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
 						reset();
-			    		worldObj.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimension(), getUpdatePacket());
+						needsUpdate = true;
+			    		if(server != null) server.getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
 					} else
 					{
-						needsUpdate = true;
+						if(!itemStacks.get(0).equals(beforeStack)) needsUpdate = true;
 					}
 				} else
 				{
-					itemStack[1] = inStack;
-					itemStack[0] = null;
+					itemStacks.set(1, inStack);
+					itemStacks.set(0, ItemStack.EMPTY);
 				}
 			}
 			
@@ -102,49 +97,77 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			{
 				needsUpdate = false;
 				
-				if(q != null && !worldObj.isRemote)
+				if(q != null && qc != null)
 				{
-					QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
+					qc.markQuestDirty(questID);
 				}
-			} else if(t != null && ((ITask)t).isComplete(owner))
+			}
+			
+			if(t != null && t.isComplete(owner))
 			{
 				reset();
-	    		worldObj.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimension(), getUpdatePacket());
+	    		world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
 			}
 		}
 	}
 	
 	@Override
-	public int receiveEnergy(EnumFacing dir, int energy, boolean simulate)
+	public int receiveEnergy(int energy, boolean simulate)
 	{
+	    if(!isSetup() || energy <= 0 || QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE)) return 0;
+	    
 		IQuest q = getQuest();
 		IRfTask t = getTask();
 		
-		if(q == null || t == null || energy <= 0)
-		{
-			return 0;
-		}
-		
 		int remainder = 0;
-		int amount = energy;
 		
 		if(!simulate)
 		{
 			remainder = t.submitEnergy(q, owner, energy);
 		
-			if(((ITask)t).isComplete(owner))
-			{
-				QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
-				reset();
-	    		worldObj.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimension(), getUpdatePacket());
-			} else
+			if(t.isComplete(owner))
 			{
 				needsUpdate = true;
+				reset();
+	    		world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
+			} else
+			{
+				needsUpdate = true;//remainder != energy;
 			}
 		}
 		
-		return amount - remainder;
+		return energy - remainder;
 	}
+	
+	@Override
+    public int extractEnergy(int amount, boolean sim)
+    {
+        return 0;
+    }
+    
+    @Override
+    public int getEnergyStored()
+    {
+        return 0;
+    }
+    
+    @Override
+    public int getMaxEnergyStored()
+    {
+        return Integer.MAX_VALUE;
+    }
+    
+    @Override
+    public boolean canExtract()
+    {
+        return false;
+    }
+    
+    @Override
+    public boolean canReceive()
+    {
+        return isSetup();
+    }
 
 	@Override
 	public int getSizeInventory()
@@ -155,47 +178,30 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public ItemStack getStackInSlot(int idx)
 	{
-		if(idx < 0 || idx >= itemStack.length)
+		if(idx < 0 || idx >= itemStacks.size())
 		{
-			return null;
+			return ItemStack.EMPTY;
 		} else
 		{
-			return itemStack[idx];
+			return itemStacks.get(idx);
 		}
 	}
 
 	@Override
 	public ItemStack decrStackSize(int idx, int amount)
 	{
-		if(idx < 0 || idx >= itemStack.length || itemStack[idx] == null)
-		{
-			return null;
-		}
-		
-        if (amount >= itemStack[idx].stackSize)
-        {
-            ItemStack itemstack = itemStack[idx];
-            itemStack[idx] = null;
-            return itemstack;
-        }
-        else
-        {
-            itemStack[idx].stackSize -= amount;
-            ItemStack cpy = itemStack[idx].copy();
-            cpy.stackSize = amount;
-            return cpy;
-        }
+		return ItemStackHelper.getAndSplit(itemStacks, idx, amount);
 	}
 
 	@Override
-	public void setInventorySlotContents(int idx, ItemStack stack)
+	public void setInventorySlotContents(int idx, @Nonnull ItemStack stack)
 	{
-		if(idx < 0 || idx >= itemStack.length)
+		if(idx < 0 || idx >= itemStacks.size())
 		{
 			return;
 		}
 		
-		itemStack[idx] = stack;
+		itemStacks.set(idx, stack);
 	}
 
 	@Override
@@ -217,15 +223,11 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public boolean isUseableByPlayer(EntityPlayer player)
+	public boolean isUsableByPlayer(EntityPlayer player)
 	{
-		if(owner == null || player.getUniqueID().equals(owner))
-		{
-			return true;
-		}
-		
-		return false;
-	}
+        return owner == null || player.getUniqueID().equals(owner);
+        
+    }
 
 	@Override
 	public void openInventory(EntityPlayer player)
@@ -236,21 +238,22 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	public void closeInventory(EntityPlayer player)
 	{
 	}
+	
+	@Override
+    public boolean isEmpty()
+    {
+        return itemStacks.isEmpty();
+    }
 
 	@Override
 	public boolean isItemValidForSlot(int idx, ItemStack stack)
 	{
-		if(idx != 0 || stack == null)
-		{
-			return false;
-		} if(!(stack.getItem() instanceof IEnergyContainerItem))
+		if(idx != 0)
 		{
 			return false;
 		}
 		
-		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
-		
-		return eItem.getEnergyStored(stack) > 0;
+		return stack.hasCapability(CapabilityEnergy.ENERGY, null) && stack.getCapability(CapabilityEnergy.ENERGY, null).getEnergyStored() > 0;
 	}
 	
 	public IQuest getQuest()
@@ -260,7 +263,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			return null;
 		} else
 		{
-			return QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+		    if(qCached == null) qCached = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+			return qCached;
 		}
 	}
 	
@@ -268,7 +272,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	{
 		IQuest q = getQuest();
 		
-		if(q == null || taskID < 0 || taskID >= q.getTasks().size())
+		if(q == null || taskID < 0)
 		{
 			return null;
 		} else
@@ -290,15 +294,23 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			reset();
 		}
 		
+		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getID(quest);
+		this.qCached = quest;
+		this.taskID = quest.getTasks().getID(task);
+		
+		if(this.questID < 0 || this.taskID < 0)
+        {
+            reset();
+            return;
+        }
+		
 		this.owner = owner;
-		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getKey(quest);
-		this.taskID = quest.getTasks().getKey(task);
 		this.markDirty();
 	}
 	
 	public boolean isSetup()
 	{
-		return owner != null && questID < 0 && taskID < 0;
+		return owner != null && questID >= 0 && taskID >= 0;
 	}
 	
 	public void reset()
@@ -306,6 +318,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		owner = null;
 		questID = -1;
 		taskID = -1;
+		qCached = null;
 		this.markDirty();
 	}
 
@@ -315,9 +328,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
     public SPacketUpdateTileEntity getUpdatePacket()
     {
-        NBTTagCompound nbttagcompound = new NBTTagCompound();
-        this.writeToNBT(nbttagcompound);
-        return new SPacketUpdateTileEntity(pos, 0, nbttagcompound);
+        return new SPacketUpdateTileEntity(pos, 0, this.writeToNBT(new NBTTagCompound()));
     }
 
     /**
@@ -340,17 +351,15 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
      */
     public void SyncTile(NBTTagCompound data)
     {
-    	if(!worldObj.isRemote)
+    	if(!world.isRemote)
     	{
-    		this.readFromNBT(data);
+    		if(data != null) this.readFromNBT(data);
     		this.markDirty();
-    		worldObj.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, worldObj.provider.getDimension(), getUpdatePacket());
+    		world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
     	} else
     	{
     		NBTTagCompound payload = new NBTTagCompound();
-    		NBTTagCompound tileData = new NBTTagCompound();
-    		this.writeToNBT(tileData);
-    		payload.setTag("tile", tileData);
+    		payload.setTag("tile", this.writeToNBT(new NBTTagCompound()));
     		QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToServer(new QuestingPacket(RfPacketType.RF_TILE.GetLocation(), payload));
     	}
     }
@@ -359,9 +368,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	public void readFromNBT(NBTTagCompound tags)
 	{
 		super.readFromNBT(tags);
-		
-		itemStack[0] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("input"));
-		itemStack[1] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("ouput"));
+        
+        ItemStackHelper.loadAllItems(tags.getCompoundTag("inventory"), itemStacks);
 		
 		try
 		{
@@ -375,9 +383,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		questID = tags.hasKey("questID")? tags.getInteger("questID") : -1;
 		taskID = tags.hasKey("task")? tags.getInteger("task") : -1;
 		
-		if(isSetup()) // All data must be present for this to run correctly
+		if(!isSetup()) // All data must be present for this to run correctly
 		{
-			BQRF.logger.log(Level.ERROR, "One or more tags were missing!", new Exception());
 			this.reset();
 		}
 	}
@@ -386,11 +393,12 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	public NBTTagCompound writeToNBT(NBTTagCompound tags)
 	{
 		super.writeToNBT(tags);
+		
 		tags.setString("owner", owner != null? owner.toString() : "");
 		tags.setInteger("questID", questID);
 		tags.setInteger("task", taskID);
-		tags.setTag("input", itemStack[0] != null? itemStack[0].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
-		tags.setTag("output", itemStack[1] != null? itemStack[1].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
+		
+		tags.setTag("inventory", ItemStackHelper.saveAllItems(new NBTTagCompound(), itemStacks));
 		
 		return tags;
 	}
@@ -416,9 +424,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public ItemStack removeStackFromSlot(int index)
 	{
-		ItemStack stack = itemStack[index];
-		itemStack[index] = null;
-		return stack;
+		return ItemStackHelper.getAndRemove(itemStacks, index);
 	}
 
 	@Override
@@ -441,7 +447,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public void clear()
 	{
-		itemStack = new ItemStack[2];
+		itemStacks.clear();
 	}
 
 	@Override
@@ -453,7 +459,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
     public boolean hasCapability(Capability<?> capability, EnumFacing facing)
     {
-		if(capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY)
+		if(capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY || capability == CapabilityEnergy.ENERGY)
 		{
 			return true;
 		}
@@ -467,7 +473,10 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		if(capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY)
 		{
 			return CapabilityItemHandler.ITEM_HANDLER_CAPABILITY.cast(itemHandler);
-		}
+		} else if(capability == CapabilityEnergy.ENERGY)
+        {
+            return CapabilityEnergy.ENERGY.cast(this);
+        }
 		
         return super.getCapability(capability, facing);
     }

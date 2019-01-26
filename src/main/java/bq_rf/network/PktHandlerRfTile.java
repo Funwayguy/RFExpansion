@@ -19,18 +19,12 @@ public class PktHandlerRfTile implements IPacketHandler
 	@Override
 	public void handleServer(NBTTagCompound data, EntityPlayerMP sender)
 	{
-		if(sender == null)
-		{
-			return;
-		}
+		if(sender == null) return;
 		
 		NBTTagCompound tileData = data.getCompoundTag("tile");
-		TileEntity tile = sender.worldObj.getTileEntity(new BlockPos(tileData.getInteger("x"), tileData.getInteger("y"), tileData.getInteger("z")));
+		TileEntity tile = sender.world.getTileEntity(new BlockPos(tileData.getInteger("x"), tileData.getInteger("y"), tileData.getInteger("z")));
 		
-		if(tile != null && tile instanceof TileRfStation)
-		{
-			((TileRfStation)tile).SyncTile(tileData);
-		}
+		if(tile instanceof TileRfStation) ((TileRfStation)tile).SyncTile(tileData);
 	}
 	
 	@Override

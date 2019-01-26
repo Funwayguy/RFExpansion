@@ -1,24 +1,21 @@
 package bq_rf.client.gui.inventory;
 
-import java.util.ArrayList;
+import bq_rf.block.TileRfStation;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import bq_rf.block.TileRfStation;
 
 public class ContainerRfStation extends Container
 {
-	Slot submitSlot;
-	Slot returnSlot;
-	TileRfStation tile;
+	private TileRfStation tile;
 	
 	public ContainerRfStation(InventoryPlayer inventory, TileRfStation tile)
 	{
 		this.tile = tile;
 		
-		submitSlot = this.addSlotToContainer(new Slot(tile, 0, 0, 0)
+		this.addSlotToContainer(new Slot(tile, 0, 0, 0)
 		{
 			@Override
 		    public boolean isItemValid(ItemStack stack)
@@ -27,7 +24,7 @@ public class ContainerRfStation extends Container
 		    }
 		});
 		
-		returnSlot = this.addSlotToContainer(new Slot(tile, 1, 0, 0)
+		this.addSlotToContainer(new Slot(tile, 1, 0, 0)
 		{
 			@Override
 		    public boolean isItemValid(ItemStack stack)
@@ -52,26 +49,24 @@ public class ContainerRfStation extends Container
 	
 	public void moveInventorySlots(int x, int y)
 	{
-		ArrayList<Slot> slots = (ArrayList<Slot>)inventorySlots;
-		
 		int idx = 2;
 		
 		for (int i = 0; i < 3; ++i)
         {
             for (int j = 0; j < 9; ++j)
             {
-            	Slot s = slots.get(idx);
-            	s.xDisplayPosition = j * 18 + x;
-            	s.yDisplayPosition = i * 18 + y;
+            	Slot s = inventorySlots.get(idx);
+            	s.xPos = j * 18 + x;
+            	s.yPos = i * 18 + y;
             	idx++;
             }
         }
 
         for (int i = 0; i < 9; ++i)
         {
-        	Slot s = slots.get(idx);
-        	s.xDisplayPosition = i * 18 + x;
-        	s.yDisplayPosition = 58 + y;
+        	Slot s = inventorySlots.get(idx);
+        	s.xPos = i * 18 + x;
+        	s.yPos = 58 + y;
         	idx++;
         }
 	}
@@ -81,8 +76,10 @@ public class ContainerRfStation extends Container
      */
     public ItemStack transferStackInSlot(EntityPlayer player, int idx)
     {
-        ItemStack itemstack = null;
-        Slot slot = (Slot)this.inventorySlots.get(idx);
+        if(idx < 0) return ItemStack.EMPTY;
+        
+        ItemStack itemstack = ItemStack.EMPTY;
+        Slot slot = this.inventorySlots.get(idx);
 
         if (slot != null && slot.getHasStack())
         {
@@ -93,7 +90,7 @@ public class ContainerRfStation extends Container
             {
                 if (!this.mergeItemStack(itemstack1, 1, 37, true))
                 {
-                    return null;
+                    return ItemStack.EMPTY;
                 }
 
                 slot.onSlotChange(itemstack1, itemstack);
@@ -102,43 +99,43 @@ public class ContainerRfStation extends Container
             {
                 if (!this.mergeItemStack(itemstack1, 0, 1, false))
                 {
-                    return null;
+                    return ItemStack.EMPTY;
                 }
             }
-            else if (idx >= 1 && idx < 28)
+            else if (idx < 28)
             {
                 if (!this.mergeItemStack(itemstack1, 28, 37, false))
                 {
-                    return null;
+                    return ItemStack.EMPTY;
                 }
             }
-            else if (idx >= 28 && idx < 37)
+            else if (idx < 37)
             {
                 if (!this.mergeItemStack(itemstack1, 1, 28, false))
                 {
-                    return null;
+                    return ItemStack.EMPTY;
                 }
             }
             else if (!this.mergeItemStack(itemstack1, 1, 37, false))
             {
-                return null;
+                return ItemStack.EMPTY;
             }
 
-            if (itemstack1.stackSize == 0)
+            if (itemstack1.isEmpty())
             {
-                slot.putStack((ItemStack)null);
+                slot.putStack(ItemStack.EMPTY);
             }
             else
             {
                 slot.onSlotChanged();
             }
 
-            if (itemstack1.stackSize == itemstack.stackSize)
+            if (itemstack1.getCount() == itemstack.getCount())
             {
-                return null;
+                return ItemStack.EMPTY;
             }
-
-            slot.onPickupFromSlot(player, itemstack1);
+            
+            slot.onTake(player, itemstack1);
         }
 
         return itemstack;
@@ -146,21 +143,21 @@ public class ContainerRfStation extends Container
 	
 	public void moveSubmitSlot(int x, int y)
 	{
-		Slot s = (Slot)inventorySlots.get(0);
-		s.xDisplayPosition = x;
-		s.yDisplayPosition = y;
+		Slot s = inventorySlots.get(0);
+		s.xPos = x;
+		s.yPos = y;
 	}
 	
 	public void moveReturnSlot(int x, int y)
 	{
-		Slot s = (Slot)inventorySlots.get(1);
-		s.xDisplayPosition = x;
-		s.yDisplayPosition = y;
+		Slot s = inventorySlots.get(1);
+		s.xPos = x;
+		s.yPos = y;
 	}
 	
 	@Override
 	public boolean canInteractWith(EntityPlayer player)
 	{
-		return tile.isUseableByPlayer(player);
+		return tile.isUsableByPlayer(player);
 	}
 }

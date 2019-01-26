@@ -1,8 +1,10 @@
 package bq_rf.core;
 
+import bq_rf.block.BlockRfStation;
+import bq_rf.block.TileRfStation;
+import bq_rf.core.proxies.CommonProxy;
+import bq_rf.handlers.ConfigHandler;
 import net.minecraft.block.Block;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemBlock;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.Mod;
@@ -16,10 +18,6 @@ import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import org.apache.logging.log4j.Logger;
-import bq_rf.block.BlockRfStation;
-import bq_rf.block.TileRfStation;
-import bq_rf.core.proxies.CommonProxy;
-import bq_rf.handlers.ConfigHandler;
 
 @Mod(modid = BQRF.MODID, version = BQRF.VERSION, name = BQRF.NAME, guiFactory = "bq_rf.handlers.ConfigGuiFactory")
 public class BQRF
@@ -59,30 +57,11 @@ public class BQRF
     {
     	proxy.registerThemes();
     	
-    	registerBlock(rfStation, "rf_station");
-    	GameRegistry.registerTileEntity(TileRfStation.class, "rf_station");
-    	
-    	proxy.registerRenderers();
+    	GameRegistry.registerTileEntity(TileRfStation.class, new ResourceLocation(MODID, "rf_station"));
     }
     
     @EventHandler
     public void postInit(FMLPostInitializationEvent event)
     {
-    }
-    
-    /**
-     * Because I'm lazy...
-     */
-    public void registerBlock(Block b, String name)
-    {
-    	ResourceLocation res = new ResourceLocation(MODID + ":" + name);
-    	GameRegistry.register(b, res);
-        GameRegistry.register(new ItemBlock(b).setRegistryName(res));
-    }
-    
-    public void registerItem(Item i, String name)
-    {
-    	ResourceLocation res = new ResourceLocation(MODID + ":" + name);
-        GameRegistry.register(i.setRegistryName(res));
     }
 }

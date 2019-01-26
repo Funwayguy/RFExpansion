@@ -21,10 +21,7 @@ public class RSItemHandler implements IItemHandlerModifiable
 	@Override
 	public ItemStack insertItem(int slot, ItemStack stack, boolean simulate)
 	{
-		if(stack == null)
-		{
-			return null;
-		} else if(!tile.isItemValidForSlot(slot, stack))
+		if(stack.isEmpty() || !tile.isItemValidForSlot(slot, stack))
 		{
 			return stack;
 		}
@@ -32,38 +29,38 @@ public class RSItemHandler implements IItemHandlerModifiable
 		// Existing stack
 		ItemStack ts1 = getStackInSlot(slot);
 		
-		if(ts1 != null && !stack.isItemEqual(ts1))
+		if(!stack.isItemEqual(ts1))
 		{
 			return stack;
 		}
 		
-		int inMax = Math.min(stack.stackSize, stack.getMaxStackSize() - (ts1 == null? 0 : ts1.stackSize));
+		int inMax = Math.min(stack.getCount(), stack.getMaxStackSize() - ts1.getCount());
 		// Input stack
 		ItemStack ts2 = stack.copy();
-		ts2.stackSize = inMax;
+		ts2.setCount(inMax);
 		
 		if(!simulate)
 		{
-			if(ts1 == null)
+			if(ts1.isEmpty())
 			{
 				ts1 = ts2;
 			} else
 			{
-				ts1.stackSize += ts2.stackSize;
+				ts1.grow(ts2.getCount());
 			}
 			
 			tile.setInventorySlotContents(slot, ts1);
 		}
 		
-		if(stack.stackSize > inMax)
+		if(stack.getCount() > inMax)
 		{
 			// Left over stack
 			ItemStack ts3 = stack.copy();
-			ts3.stackSize = stack.stackSize - inMax;
+			ts3.setCount(stack.getCount() - inMax);
 			return ts3;
 		}
 		
-		return null;
+		return ItemStack.EMPTY;
 	}
 
 	@Override
@@ -71,7 +68,7 @@ public class RSItemHandler implements IItemHandlerModifiable
 	{
 		if(slot != 1 || amount <= 0)
 		{
-			return null;
+			return ItemStack.EMPTY;
 		}
 		
 		if(!simulate)
@@ -81,15 +78,15 @@ public class RSItemHandler implements IItemHandlerModifiable
 		
 		ItemStack stack = getStackInSlot(slot);
 		
-		if(stack == null)
+		if(stack.isEmpty())
 		{
-			return null;
+			return ItemStack.EMPTY;
 		}
 		
-		int outMax = Math.min(stack.stackSize, amount);
+		int outMax = Math.min(stack.getCount(), amount);
 		
 		ItemStack ts1 = stack.copy();
-		ts1.stackSize = outMax;
+		ts1.setCount(outMax);
 		
 		return ts1;
 	}
@@ -104,5 +101,11 @@ public class RSItemHandler implements IItemHandlerModifiable
 	public ItemStack getStackInSlot(int slot)
 	{
 		return tile.getStackInSlot(slot);
+	}
+
+	@Override
+	public int getSlotLimit(int slot)
+	{
+		return 1;
 	}
 }

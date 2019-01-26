@@ -1,13 +1,13 @@
 package bq_rf.core.proxies;
 
+import bq_rf.core.BQRF;
 import net.minecraft.block.Block;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelBakery;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.item.Item;
+import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import bq_rf.core.BQRF;
 
 public class ClientProxy extends CommonProxy
 {
@@ -48,30 +48,11 @@ public class ClientProxy extends CommonProxy
 		Item item = Item.getItemFromBlock(block);
 		ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
 		
-		if(!name.equals(item.getRegistryName()))
+		if(!name.equals(item.getRegistryName().toString()))
 		{
 		    ModelBakery.registerItemVariants(item, model);
 		}
-		
-	    Minecraft.getMinecraft().getRenderItem().getItemModelMesher().register(item, meta, model);
-	}
-	
-	@SideOnly(Side.CLIENT)
-	public static void registerItemModel(Item item)
-	{
-		registerItemModel(item, 0, item.getRegistryName().toString());
-	}
-	
-	@SideOnly(Side.CLIENT)
-	public static void registerItemModel(Item item, int meta, String name)
-	{
-		ModelResourceLocation model = new ModelResourceLocation(name, "inventory");
-		
-		if(!name.equals(item.getRegistryName()))
-		{
-		    ModelBakery.registerItemVariants(item, model);
-		}
-		
-	    Minecraft.getMinecraft().getRenderItem().getItemModelMesher().register(item, meta, model);
+
+		ModelLoader.setCustomModelResourceLocation(item, meta, model);
 	}
 }
