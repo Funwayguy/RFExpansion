@@ -5,6 +5,7 @@ import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.utils.BigItemStack;
 import betterquesting.api2.client.gui.controls.IValueIO;
+import betterquesting.api2.client.gui.controls.io.FloatSimpleIO;
 import betterquesting.api2.client.gui.misc.GuiAlign;
 import betterquesting.api2.client.gui.misc.GuiPadding;
 import betterquesting.api2.client.gui.misc.GuiTransform;
@@ -77,22 +78,7 @@ public class PanelTaskRate extends CanvasEmpty
         
         PanelHBarFill fillBar = new PanelHBarFill(new GuiTransform(new Vector4f(0.25F, 0.5F, 0.75F, 0.5F), new GuiPadding(0, 0, 0, -16), 0));
         fillBar.setFillColor(new GuiColorStatic(0xFFFF0000));
-        barValue = new IValueIO<Float>()
-        {
-            float value = percent;
-            
-            @Override
-            public Float readValue()
-            {
-                return value;
-            }
-            
-            @Override
-            public void writeValue(Float value)
-            {
-                this.value = value;
-            }
-        };
+        barValue = new FloatSimpleIO(percent, 0F, 1F).setLerp(true, 0.01F);
         fillBar.setFillDriver(barValue);
         this.addPanel(fillBar);
         

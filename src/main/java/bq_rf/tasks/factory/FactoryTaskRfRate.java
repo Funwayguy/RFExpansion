@@ -1,12 +1,13 @@
 package bq_rf.tasks.factory;
 
-import betterquesting.api.misc.IFactory;
+import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api2.registry.IFactoryData;
 import bq_rf.core.BQRF;
 import bq_rf.tasks.TaskRfRate;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
-public class FactoryTaskRfRate implements IFactory<TaskRfRate>
+public class FactoryTaskRfRate implements IFactoryData<ITask, NBTTagCompound>
 {
 	public static final FactoryTaskRfRate INSTANCE = new FactoryTaskRfRate();
 	
@@ -30,7 +31,7 @@ public class FactoryTaskRfRate implements IFactory<TaskRfRate>
 	}
 
 	@Override
-	public TaskRfRate loadFromNBT(NBTTagCompound nbt)
+	public TaskRfRate loadFromData(NBTTagCompound nbt)
 	{
 		TaskRfRate task = new TaskRfRate();
 		task.readFromNBT(nbt);

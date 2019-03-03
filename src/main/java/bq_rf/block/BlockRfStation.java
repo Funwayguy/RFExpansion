@@ -13,17 +13,19 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import javax.annotation.Nonnull;
+
 public class BlockRfStation extends BlockContainer
 {
 	public BlockRfStation()
 	{
 		super(Material.IRON);
 		this.setHardness(1);
-		this.setUnlocalizedName(BQRF.MODID + "rf_station");
+		this.setTranslationKey(BQRF.MODID + ".rf_station");
 	}
 
 	@Override
-	public TileEntity createNewTileEntity(World world, int meta)
+	public TileEntity createNewTileEntity(@Nonnull World world, int meta)
 	{
 		return new TileRfStation();
 	}
@@ -31,7 +33,9 @@ public class BlockRfStation extends BlockContainer
     /**
      * The type of render function called. 3 for standard block models, 2 for TESR's, 1 for liquids, -1 is no render
      */
+    @Nonnull
 	@Override
+    @Deprecated
     public EnumBlockRenderType getRenderType(IBlockState state)
     {
         return EnumBlockRenderType.MODEL;
@@ -51,7 +55,7 @@ public class BlockRfStation extends BlockContainer
     }
 	
 	@Override
-    public void breakBlock(World world, BlockPos pos, IBlockState state)
+    public void breakBlock(World world, @Nonnull BlockPos pos, @Nonnull IBlockState state)
     {
         TileRfStation tileStation = (TileRfStation)world.getTileEntity(pos);
 
