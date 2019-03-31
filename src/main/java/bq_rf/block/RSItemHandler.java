@@ -21,10 +21,7 @@ public class RSItemHandler implements IItemHandlerModifiable
 	@Override
 	public ItemStack insertItem(int slot, ItemStack stack, boolean simulate)
 	{
-		if(stack == null)
-		{
-			return null;
-		} else if(!tile.isItemValidForSlot(slot, stack))
+		if(stack == null || !tile.isItemValidForSlot(slot, stack))
 		{
 			return stack;
 		}
@@ -37,7 +34,7 @@ public class RSItemHandler implements IItemHandlerModifiable
 			return stack;
 		}
 		
-		int inMax = Math.min(stack.stackSize, stack.getMaxStackSize() - (ts1 == null? 0 : ts1.stackSize));
+		int inMax = Math.min(stack.stackSize, stack.getMaxStackSize() - (ts1 == null ? 0 : ts1.stackSize));
 		// Input stack
 		ItemStack ts2 = stack.copy();
 		ts2.stackSize = inMax;

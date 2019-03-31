@@ -1,8 +1,13 @@
 package bq_rf.core;
 
+import bq_rf.block.BlockRfStation;
+import bq_rf.block.TileRfStation;
+import bq_rf.core.proxies.CommonProxy;
+import bq_rf.handlers.ConfigHandler;
 import net.minecraft.block.Block;
-import net.minecraft.item.Item;
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.Mod;
@@ -16,18 +21,11 @@ import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import org.apache.logging.log4j.Logger;
-import bq_rf.block.BlockRfStation;
-import bq_rf.block.TileRfStation;
-import bq_rf.core.proxies.CommonProxy;
-import bq_rf.handlers.ConfigHandler;
 
-@Mod(modid = BQRF.MODID, version = BQRF.VERSION, name = BQRF.NAME, guiFactory = "bq_rf.handlers.ConfigGuiFactory")
+@Mod(modid = BQRF.MODID, version = "@VERSIONS@", name = BQRF.NAME, guiFactory = "bq_rf.handlers.ConfigGuiFactory")
 public class BQRF
 {
     public static final String MODID = "bq_rf";
-    public static final String VERSION = "CI_MOD_VERSION";
-    public static final String HASH = "CI_MOD_HASH";
-    public static final String BRANCH = "CI_MOD_BRANCH";
     public static final String NAME = "RF Expansion";
     public static final String PROXY = "bq_rf.core.proxies";
     public static final String CHANNEL = "BQ_RF";
@@ -68,21 +66,13 @@ public class BQRF
     @EventHandler
     public void postInit(FMLPostInitializationEvent event)
     {
+        GameRegistry.addShapedRecipe(new ItemStack(BQRF.rfStation), "IRI", "RSR", "IRI", 'I', new ItemStack(Items.IRON_INGOT), 'R', new ItemStack(Items.REDSTONE), 'S', new ItemStack((Block)Block.REGISTRY.getObject(new ResourceLocation("betterquesting:submit_station"))));
     }
     
-    /**
-     * Because I'm lazy...
-     */
     public void registerBlock(Block b, String name)
     {
     	ResourceLocation res = new ResourceLocation(MODID + ":" + name);
     	GameRegistry.register(b, res);
         GameRegistry.register(new ItemBlock(b).setRegistryName(res));
-    }
-    
-    public void registerItem(Item i, String name)
-    {
-    	ResourceLocation res = new ResourceLocation(MODID + ":" + name);
-        GameRegistry.register(i.setRegistryName(res));
     }
 }

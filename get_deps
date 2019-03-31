@@ -1,3 +1,0 @@
-echo "Downloading dependencies..."
-mkdir -p libs
-curl -k -o make_logs https://gist.githubusercontent.com/Funwayguy/80382442b558081b2d28b78055e4153d/raw/bq_rf_make_logs
