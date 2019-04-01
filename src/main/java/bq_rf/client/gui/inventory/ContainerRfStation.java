@@ -1,24 +1,21 @@
 package bq_rf.client.gui.inventory;
 
-import java.util.ArrayList;
+import bq_rf.block.TileRfStation;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import bq_rf.block.TileRfStation;
 
 public class ContainerRfStation extends Container
 {
-	Slot submitSlot;
-	Slot returnSlot;
-	TileRfStation tile;
+	private TileRfStation tile;
 	
 	public ContainerRfStation(InventoryPlayer inventory, TileRfStation tile)
 	{
 		this.tile = tile;
 		
-		submitSlot = this.addSlotToContainer(new Slot(tile, 0, 0, 0)
+		this.addSlotToContainer(new Slot(tile, 0, 0, 0)
 		{
 			@Override
 		    public boolean isItemValid(ItemStack stack)
@@ -27,7 +24,7 @@ public class ContainerRfStation extends Container
 		    }
 		});
 		
-		returnSlot = this.addSlotToContainer(new Slot(tile, 1, 0, 0)
+		this.addSlotToContainer(new Slot(tile, 1, 0, 0)
 		{
 			@Override
 		    public boolean isItemValid(ItemStack stack)
@@ -50,18 +47,15 @@ public class ContainerRfStation extends Container
         }
 	}
 	
-	@SuppressWarnings("unchecked")
 	public void moveInventorySlots(int x, int y)
 	{
-		ArrayList<Slot> slots = (ArrayList<Slot>)inventorySlots;
-		
 		int idx = 2;
 		
 		for (int i = 0; i < 3; ++i)
         {
             for (int j = 0; j < 9; ++j)
             {
-            	Slot s = slots.get(idx);
+            	Slot s = (Slot)inventorySlots.get(idx);
             	s.xDisplayPosition = j * 18 + x;
             	s.yDisplayPosition = i * 18 + y;
             	idx++;
@@ -70,7 +64,7 @@ public class ContainerRfStation extends Container
 
         for (int i = 0; i < 9; ++i)
         {
-        	Slot s = slots.get(idx);
+        	Slot s = (Slot)inventorySlots.get(idx);
         	s.xDisplayPosition = i * 18 + x;
         	s.yDisplayPosition = 58 + y;
         	idx++;
@@ -82,6 +76,8 @@ public class ContainerRfStation extends Container
      */
     public ItemStack transferStackInSlot(EntityPlayer player, int idx)
     {
+        if(idx < 0) return null;
+        
         ItemStack itemstack = null;
         Slot slot = (Slot)this.inventorySlots.get(idx);
 
@@ -106,14 +102,14 @@ public class ContainerRfStation extends Container
                     return null;
                 }
             }
-            else if (idx >= 1 && idx < 28)
+            else if (idx < 28)
             {
                 if (!this.mergeItemStack(itemstack1, 28, 37, false))
                 {
                     return null;
                 }
             }
-            else if (idx >= 28 && idx < 37)
+            else if (idx < 37)
             {
                 if (!this.mergeItemStack(itemstack1, 1, 28, false))
                 {
@@ -127,7 +123,7 @@ public class ContainerRfStation extends Container
 
             if (itemstack1.stackSize == 0)
             {
-                slot.putStack((ItemStack)null);
+                slot.putStack(null);
             }
             else
             {
@@ -138,7 +134,7 @@ public class ContainerRfStation extends Container
             {
                 return null;
             }
-
+            
             slot.onPickupFromSlot(player, itemstack1);
         }
 

@@ -1,88 +1,84 @@
 package bq_rf.block;
 
-import java.util.UUID;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.ISidedInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.Packet;
-import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraftforge.common.util.ForgeDirection;
-import org.apache.logging.log4j.Level;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.network.QuestingPacket;
+import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api2.cache.QuestCache;
 import bq_rf.core.BQRF;
 import bq_rf.network.RfPacketType;
 import bq_rf.tasks.IRfTask;
 import cofh.api.energy.IEnergyContainerItem;
 import cofh.api.energy.IEnergyReceiver;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.ISidedInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.NetworkManager;
+import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.UUID;
 
 public class TileRfStation extends TileEntity implements IEnergyReceiver, ISidedInventory
 {
-	ItemStack[] itemStack = new ItemStack[2];
-	boolean needsUpdate = false;
+	private final ItemStack[] itemStacks = new ItemStack[2];
+	private boolean needsUpdate = false;
 	public UUID owner;
 	public int questID;
 	public int taskID;
 	
-	@Override
-	public boolean canConnectEnergy(ForgeDirection dir)
-	{
-		return true;
-	}
+	private IQuest qCached;
 	
-	@Override
-	public int getEnergyStored(ForgeDirection dir)
+	public TileRfStation()
 	{
-		return 0;
-	}
-	
-	@Override
-	public int getMaxEnergyStored(ForgeDirection dir)
-	{
-		return 0;
+		super();
 	}
 	
 	@Override
 	public void updateEntity()
 	{
-		if(worldObj.isRemote)
-		{
-			return;
-		}
+		if(worldObj.isRemote || !isSetup() || QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE)) return;
 		
-		IQuest q = getQuest();
-		IRfTask t = getTask();
-		
-		if(worldObj.getTotalWorldTime()%10 == 0)
+		long wtt = worldObj.getTotalWorldTime();
+		if(wtt%10 == 0 && owner != null)
 		{
-			if(owner != null && q != null && t != null && owner != null && itemStack[0] != null)
+		    if(wtt%20 == 0) qCached = null;
+            IQuest q = getQuest();
+            IRfTask t = getTask();
+            MinecraftServer server = MinecraftServer.getServer();
+            EntityPlayerMP player = getPlayerByUUID(owner);
+            QuestCache qc = player == null ? null : (QuestCache)player.getExtendedProperties(QuestCache.LOC_QUEST_CACHE.toString());
+            
+			if(q != null && t != null && itemStacks[0] != null && itemStacks[1] == null)
 			{
-				ItemStack inStack = itemStack[0].copy();
+				ItemStack inStack = itemStacks[0].copy();
+				ItemStack beforeStack = itemStacks[0].copy();
 				
 				if(isItemValidForSlot(0, inStack))
 				{
-					itemStack[0] = t.submitItem(q, owner, inStack);
+					itemStacks[0] = t.submitItem(q, owner, inStack);
 					
-					if(((ITask)t).isComplete(owner))
+					if(t.isComplete(owner))
 					{
-						QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
 						reset();
-			    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+						needsUpdate = true;
+			    		if(server != null) server.getConfigurationManager().sendToAllNearExcept(null, xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
 					} else
 					{
-						needsUpdate = true;
+						if(!itemStacks[0].equals(beforeStack)) needsUpdate = true;
 					}
 				} else
 				{
-					itemStack[1] = inStack;
-					itemStack[0] = null;
+					itemStacks[1] = inStack;
+					itemStacks[0] = null;
 				}
 			}
 			
@@ -90,49 +86,78 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			{
 				needsUpdate = false;
 				
-				if(q != null && !worldObj.isRemote)
+				if(q != null && qc != null)
 				{
-					QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
+					qc.markQuestDirty(questID);
 				}
-			} else if(t != null && ((ITask)t).isComplete(owner))
+			}
+			
+			if(t != null && t.isComplete(owner))
 			{
 				reset();
-	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+	    		server.getConfigurationManager().sendToAllNearExcept(null, xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
 			}
 		}
 	}
 	
+	private EntityPlayerMP getPlayerByUUID(UUID uuid)
+    {
+        MinecraftServer server = MinecraftServer.getServer();
+        if(server == null) return null;
+        
+        for(EntityPlayerMP player : (List<EntityPlayerMP>)server.getConfigurationManager().playerEntityList)
+        {
+            if(player.getGameProfile().getId().equals(uuid)) return player;
+        }
+        
+        return null;
+    }
+	
 	@Override
 	public int receiveEnergy(ForgeDirection dir, int energy, boolean simulate)
 	{
+	    if(!isSetup() || energy <= 0 || QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE)) return 0;
+	    
 		IQuest q = getQuest();
 		IRfTask t = getTask();
 		
-		if(q == null || t == null || energy <= 0)
-		{
-			return 0;
-		}
-		
 		int remainder = 0;
-		int amount = energy;
 		
 		if(!simulate)
 		{
 			remainder = t.submitEnergy(q, owner, energy);
 		
-			if(((ITask)t).isComplete(owner))
-			{
-				QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToAll(q.getSyncPacket());
-				reset();
-	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
-			} else
+			if(t.isComplete(owner))
 			{
 				needsUpdate = true;
+				reset();
+	    		MinecraftServer.getServer().getConfigurationManager().sendToAllNearExcept(null, xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+			} else
+			{
+				needsUpdate = true;//remainder != energy;
 			}
 		}
 		
-		return amount - remainder;
+		return energy - remainder;
 	}
+	
+    @Override
+    public int getEnergyStored(ForgeDirection dir)
+    {
+        return 0;
+    }
+    
+    @Override
+    public int getMaxEnergyStored(ForgeDirection dir)
+    {
+        return Integer.MAX_VALUE;
+    }
+    
+    @Override
+    public boolean canConnectEnergy(ForgeDirection dir)
+    {
+        return isSetup();
+    }
 
 	@Override
 	public int getSizeInventory()
@@ -143,33 +168,33 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public ItemStack getStackInSlot(int idx)
 	{
-		if(idx < 0 || idx >= itemStack.length)
+		if(idx < 0 || idx >= itemStacks.length)
 		{
 			return null;
 		} else
 		{
-			return itemStack[idx];
+			return itemStacks[idx];
 		}
 	}
 
 	@Override
 	public ItemStack decrStackSize(int idx, int amount)
 	{
-		if(idx < 0 || idx >= itemStack.length || itemStack[idx] == null)
+		if(idx < 0 || idx >= itemStacks.length || itemStacks[idx] == null)
 		{
 			return null;
 		}
 		
-        if (amount >= itemStack[idx].stackSize)
+        if (amount >= itemStacks[idx].stackSize)
         {
-            ItemStack itemstack = itemStack[idx];
-            itemStack[idx] = null;
+            ItemStack itemstack = itemStacks[idx];
+            itemStacks[idx] = null;
             return itemstack;
         }
         else
         {
-            itemStack[idx].stackSize -= amount;
-            ItemStack cpy = itemStack[idx].copy();
+            itemStacks[idx].stackSize -= amount;
+            ItemStack cpy = itemStacks[idx].copy();
             cpy.stackSize = amount;
             return cpy;
         }
@@ -182,20 +207,20 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	}
 
 	@Override
-	public void setInventorySlotContents(int idx, ItemStack stack)
+	public void setInventorySlotContents(int idx, @Nonnull ItemStack stack)
 	{
-		if(idx < 0 || idx >= itemStack.length)
+		if(idx < 0 || idx >= itemStacks.length)
 		{
 			return;
 		}
 		
-		itemStack[idx] = stack;
+		itemStacks[idx] = stack;
 	}
 
 	@Override
 	public String getInventoryName()
 	{
-		return "RF Submission Station";
+		return BQRF.rfStation.getLocalizedName();
 	}
 
 	@Override
@@ -213,13 +238,9 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public boolean isUseableByPlayer(EntityPlayer player)
 	{
-		if(owner == null || player.getUniqueID().equals(owner))
-		{
-			return true;
-		}
-		
-		return false;
-	}
+        return owner == null || player.getUniqueID().equals(owner);
+        
+    }
 
 	@Override
 	public void openInventory()
@@ -234,16 +255,12 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	@Override
 	public boolean isItemValidForSlot(int idx, ItemStack stack)
 	{
-		if(idx != 0 || stack == null)
-		{
-			return false;
-		} if(!(stack.getItem() instanceof IEnergyContainerItem))
+		if(idx != 0 || stack == null || !(stack.getItem() instanceof IEnergyContainerItem))
 		{
 			return false;
 		}
 		
 		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
-		
 		return eItem.getEnergyStored(stack) > 0;
 	}
 	
@@ -254,7 +271,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			return null;
 		} else
 		{
-			return QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+		    if(qCached == null) qCached = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+			return qCached;
 		}
 	}
 	
@@ -262,7 +280,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	{
 		IQuest q = getQuest();
 		
-		if(q == null || taskID < 0 || taskID >= q.getTasks().size())
+		if(q == null || taskID < 0)
 		{
 			return null;
 		} else
@@ -284,15 +302,23 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 			reset();
 		}
 		
+		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getID(quest);
+		this.qCached = quest;
+		this.taskID = quest.getTasks().getID(task);
+		
+		if(this.questID < 0 || this.taskID < 0)
+        {
+            reset();
+            return;
+        }
+		
 		this.owner = owner;
-		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getKey(quest);
-		this.taskID = quest.getTasks().getKey(task);
 		this.markDirty();
 	}
 	
 	public boolean isSetup()
 	{
-		return owner != null && questID < 0 && taskID < 0;
+		return owner != null && questID >= 0 && taskID >= 0;
 	}
 	
 	public void reset()
@@ -300,17 +326,19 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		owner = null;
 		questID = -1;
 		taskID = -1;
+		qCached = null;
 		this.markDirty();
 	}
 
     /**
      * Overridden in a sign to provide the text.
      */
-    public Packet getDescriptionPacket()
+	@Override
+    public S35PacketUpdateTileEntity getDescriptionPacket()
     {
-        NBTTagCompound nbttagcompound = new NBTTagCompound();
-        this.writeToNBT(nbttagcompound);
-        return new S35PacketUpdateTileEntity(this.xCoord, this.yCoord, this.zCoord, 0, nbttagcompound);
+        NBTTagCompound tag = new NBTTagCompound();
+        this.writeToNBT(tag);
+        return new S35PacketUpdateTileEntity(xCoord, yCoord, zCoord, 0, tag);
     }
 
     /**
@@ -322,6 +350,7 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
      * @param net The NetworkManager the packet originated from
      * @param pkt The data packet
      */
+	@Override
     public void onDataPacket(NetworkManager net, S35PacketUpdateTileEntity pkt)
     {
     	this.readFromNBT(pkt.func_148857_g());
@@ -334,9 +363,9 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
     {
     	if(!worldObj.isRemote)
     	{
-    		this.readFromNBT(data);
+    		if(data != null) this.readFromNBT(data);
     		this.markDirty();
-    		MinecraftServer.getServer().getConfigurationManager().sendToAllNear(xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
+    		MinecraftServer.getServer().getConfigurationManager().sendToAllNearExcept(null, xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
     	} else
     	{
     		NBTTagCompound payload = new NBTTagCompound();
@@ -352,8 +381,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	{
 		super.readFromNBT(tags);
 		
-		itemStack[0] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("input"));
-		itemStack[1] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("ouput"));
+		itemStacks[0] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("input"));
+		itemStacks[1] = ItemStack.loadItemStackFromNBT(tags.getCompoundTag("output"));
 		
 		try
 		{
@@ -367,9 +396,8 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 		questID = tags.hasKey("questID")? tags.getInteger("questID") : -1;
 		taskID = tags.hasKey("task")? tags.getInteger("task") : -1;
 		
-		if(isSetup()) // All data must be present for this to run correctly
+		if(!isSetup()) // All data must be present for this to run correctly
 		{
-			BQRF.logger.log(Level.ERROR, "One or more tags were missing!", new Exception());
 			this.reset();
 		}
 	}
@@ -378,23 +406,26 @@ public class TileRfStation extends TileEntity implements IEnergyReceiver, ISided
 	public void writeToNBT(NBTTagCompound tags)
 	{
 		super.writeToNBT(tags);
+		
 		tags.setString("owner", owner != null? owner.toString() : "");
 		tags.setInteger("questID", questID);
 		tags.setInteger("task", taskID);
-		tags.setTag("input", itemStack[0] != null? itemStack[0].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
-		tags.setTag("output", itemStack[1] != null? itemStack[1].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
+		tags.setTag("input", itemStacks[0] != null? itemStacks[0].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
+		tags.setTag("output", itemStacks[1] != null? itemStacks[1].writeToNBT(new NBTTagCompound()) : new NBTTagCompound());
 	}
-
+	
+	private static final int[] slotsForFace = new int[]{0,1};
+	
 	@Override
 	public int[] getAccessibleSlotsFromSide(int side)
 	{
-		return new int[]{0,1};
+		return slotsForFace;
 	}
 
 	@Override
 	public boolean canInsertItem(int slot, ItemStack stack, int side)
 	{
-		return slot == 0;
+		return slot == 0 && isItemValidForSlot(slot, stack);
 	}
 
 	@Override

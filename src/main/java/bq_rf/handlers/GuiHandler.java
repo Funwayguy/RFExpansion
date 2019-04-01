@@ -1,12 +1,12 @@
 package bq_rf.handlers;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.world.World;
 import bq_rf.block.TileRfStation;
 import bq_rf.client.gui.inventory.ContainerRfStation;
 import bq_rf.client.gui.inventory.GuiRfStation;
 import cpw.mods.fml.common.network.IGuiHandler;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
 
 public class GuiHandler implements IGuiHandler
 {

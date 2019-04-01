@@ -1,13 +1,13 @@
 package bq_rf.tasks.factory;
 
-import net.minecraft.util.ResourceLocation;
-import com.google.gson.JsonObject;
-import betterquesting.api.enums.EnumSaveType;
-import betterquesting.api.misc.IFactory;
+import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api2.registry.IFactoryData;
 import bq_rf.core.BQRF;
 import bq_rf.tasks.TaskRfCharge;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
 
-public class FactoryTaskRfCharge implements IFactory<TaskRfCharge>
+public class FactoryTaskRfCharge implements IFactoryData<ITask, NBTTagCompound>
 {
 	public static final FactoryTaskRfCharge INSTANCE = new FactoryTaskRfCharge();
 	
@@ -31,10 +31,10 @@ public class FactoryTaskRfCharge implements IFactory<TaskRfCharge>
 	}
 
 	@Override
-	public TaskRfCharge loadFromJson(JsonObject json)
+	public TaskRfCharge loadFromData(NBTTagCompound nbt)
 	{
 		TaskRfCharge task = new TaskRfCharge();
-		task.readFromJson(json, EnumSaveType.CONFIG);
+		task.readFromNBT(nbt);
 		return task;
 	}
 	

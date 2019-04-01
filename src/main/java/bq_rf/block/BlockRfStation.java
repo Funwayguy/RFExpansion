@@ -1,5 +1,8 @@
 package bq_rf.block;
 
+import bq_rf.core.BQRF;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
@@ -11,20 +14,17 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
-import bq_rf.core.BQRF;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 
 public class BlockRfStation extends BlockContainer
 {
-	IIcon topIcon;
-	
+    private IIcon topIcon;
+    
 	public BlockRfStation()
 	{
 		super(Material.iron);
 		this.setHardness(1);
-		this.setBlockName("bq_rf.rf_station");
-		this.setBlockTextureName("bq_rf:rf_station");
+		this.setBlockName(BQRF.MODID + ".rf_station");
+		this.setBlockTextureName(BQRF.MODID + ":rf_station");
 	}
 
 	@Override
@@ -36,6 +36,7 @@ public class BlockRfStation extends BlockContainer
     /**
      * Called upon block activation (right click on the block.)
      */
+	@Override
     public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player, int side, float hitX, float hitY, float hitZ)
     {
     	if(!world.isRemote)
@@ -44,12 +45,13 @@ public class BlockRfStation extends BlockContainer
     	}
         return true;
     }
-
+	
+	@Override
     public void breakBlock(World world, int x, int y, int z, Block block, int meta)
     {
         TileRfStation tileStation = (TileRfStation)world.getTileEntity(x, y, z);
 
-        if (tileStation != null)
+        if(tileStation != null)
         {
             for (int i1 = 0; i1 < tileStation.getSizeInventory(); ++i1)
             {

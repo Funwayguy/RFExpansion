@@ -2,8 +2,8 @@ package bq_rf.handlers;
 
 import net.minecraftforge.common.config.Configuration;
 import org.apache.logging.log4j.Level;
-import bq_rf.core.BQRF_Settings;
 import bq_rf.core.BQRF;
+import bq_rf.core.BQRF_Settings;
 
 public class ConfigHandler
 {

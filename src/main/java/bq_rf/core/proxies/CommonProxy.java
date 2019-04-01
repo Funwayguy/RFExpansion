@@ -1,21 +1,18 @@
 package bq_rf.core.proxies;
 
-import net.minecraft.block.Block;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
 import betterquesting.api.network.IPacketRegistry;
-import betterquesting.api.questing.tasks.ITaskRegistry;
-import bq_rf.client.gui.UpdateNotification;
+import betterquesting.api.questing.tasks.ITask;
+import betterquesting.api2.registry.IFactoryData;
+import betterquesting.api2.registry.IRegistry;
 import bq_rf.core.BQRF;
 import bq_rf.handlers.GuiHandler;
 import bq_rf.network.PktHandlerRfTile;
 import bq_rf.tasks.factory.FactoryTaskRfCharge;
 import bq_rf.tasks.factory.FactoryTaskRfRate;
-import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.NetworkRegistry;
-import cpw.mods.fml.common.registry.GameRegistry;
+import net.minecraft.nbt.NBTTagCompound;
 
 public class CommonProxy
 {
@@ -26,26 +23,23 @@ public class CommonProxy
 	
 	public void registerHandlers()
 	{
-		FMLCommonHandler.instance().bus().register(new UpdateNotification());
-		
 		NetworkRegistry.INSTANCE.registerGuiHandler(BQRF.instance, new GuiHandler());
+		
+		IPacketRegistry pktReg = QuestingAPI.getAPI(ApiReference.PACKET_REG);
+    	pktReg.registerHandler(new PktHandlerRfTile());
+    	
+    	IRegistry<IFactoryData<ITask, NBTTagCompound>, ITask> tskReg = QuestingAPI.getAPI(ApiReference.TASK_REG);
+    	tskReg.register(FactoryTaskRfCharge.INSTANCE);
+    	tskReg.register(FactoryTaskRfRate.INSTANCE);
+    	
+    	BQRF.rfStation.setCreativeTab(QuestingAPI.getAPI(ApiReference.CREATIVE_TAB));
 	}
-
+ 
 	public void registerThemes()
 	{
 	}
 	
-	public void registerExpansion()
+	public void registerRenderers()
 	{
-		IPacketRegistry pktReg = QuestingAPI.getAPI(ApiReference.PACKET_REG);
-    	pktReg.registerHandler(new PktHandlerRfTile());
-    	
-    	ITaskRegistry tskReg = QuestingAPI.getAPI(ApiReference.TASK_REG);
-    	tskReg.registerTask(FactoryTaskRfCharge.INSTANCE);
-    	tskReg.registerTask(FactoryTaskRfRate.INSTANCE);
-    	
-    	BQRF.rfStation.setCreativeTab(QuestingAPI.getAPI(ApiReference.CREATIVE_TAB));
-    	
-    	GameRegistry.addShapedRecipe(new ItemStack(BQRF.rfStation), "IRI", "RSR", "IRI", 'I', new ItemStack(Items.iron_ingot), 'R', new ItemStack(Items.redstone), 'S', new ItemStack((Block)Block.blockRegistry.getObject("betterquesting:submit_station")));
 	}
 }

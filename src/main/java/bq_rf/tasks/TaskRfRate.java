@@ -1,45 +1,45 @@
 package bq_rf.tasks;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map.Entry;
-import java.util.UUID;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-import org.apache.logging.log4j.Level;
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.client.gui.misc.IGuiEmbedded;
-import betterquesting.api.enums.EnumSaveType;
-import betterquesting.api.jdoc.IJsonDoc;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.party.IParty;
 import betterquesting.api.questing.tasks.IProgression;
 import betterquesting.api.questing.tasks.ITask;
-import betterquesting.api.questing.tasks.ITickableTask;
-import betterquesting.api.utils.JsonHelper;
-import bq_rf.client.gui.tasks.GuiTaskRfRate;
+import betterquesting.api2.client.gui.misc.IGuiRect;
+import betterquesting.api2.client.gui.panels.IGuiPanel;
+import bq_rf.client.gui.tasks.PanelTaskRate;
 import bq_rf.core.BQRF;
 import bq_rf.tasks.factory.FactoryTaskRfRate;
 import cofh.api.energy.IEnergyContainerItem;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ResourceLocation;
+import org.apache.logging.log4j.Level;
 
-public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITickableTask
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.UUID;
+
+public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>
 {
-	private ArrayList<UUID> completeUsers = new ArrayList<UUID>();
-	private HashMap<UUID, Integer> userProgress = new HashMap<UUID, Integer>();
+	private final List<UUID> completeUsers = new ArrayList<>();
+	private final HashMap<UUID, Integer> userProgress = new HashMap<>();
 	
 	public int rate = 100000;
 	public int duration = 200;
 	public boolean delExcess = false;
 	
-	public HashMap<UUID, Long> lastInput = new HashMap<UUID, Long>();
+	public final HashMap<UUID, Long> lastInput = new HashMap<>();
 	public long globalLast = 0L;
 	public int globalProg = 0;
 	
@@ -87,16 +87,14 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 	@Override
 	public ItemStack submitItem(IQuest quest, UUID owner, ItemStack stack)
 	{
-		if(stack == null || isComplete(owner) || !(stack.getItem() instanceof IEnergyContainerItem))
-		{
-			return stack;
-		}
-		
-		IEnergyContainerItem eItem = (IEnergyContainerItem)stack.getItem();
+		if(stack == null || !(stack.getItem() instanceof IEnergyContainerItem)) return stack;
+        
+        IEnergyContainerItem cap = (IEnergyContainerItem)stack.getItem();
+		if(cap == null) return stack;
 		
 		int progress = getUsersProgress(owner);
 		
-		int extracted = eItem.extractEnergy(stack, delExcess? Integer.MAX_VALUE : rate, true);
+		int extracted = cap.extractEnergy(stack, delExcess? Integer.MAX_VALUE : rate, true);
 		
 		if(extracted >= rate)
 		{
@@ -109,7 +107,7 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 		
 		setUserProgress(owner, progress);
 		
-		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
+		int total = quest == null || !quest.getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
@@ -140,7 +138,7 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 		
 		setUserProgress(owner, progress);
 		
-		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
+		int total = !quest.getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
@@ -151,40 +149,9 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 	}
 	
 	@Override
-	@Deprecated
-	public void update(EntityPlayer player, IQuest quest){}
-	
-	@Override
-	public void updateTask(EntityPlayer player, IQuest quest)
-	{
-		if(isComplete(player.getUniqueID()))
-		{
-			return;
-		}
-		
-		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(player.getUniqueID()) : getGlobalProgress();
-		
-		if(total >= duration)
-		{
-			setComplete(player.getUniqueID());
-			return;
-		}
-		
-		long last = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? GetUserLast(player.getUniqueID()) : GetGlobalLast();
-		
-		if(last != System.currentTimeMillis()/1000L) // Check if the last input was within an acceptable period of time
-		{
-			int progress = getUsersProgress(player.getUniqueID());
-			progress = Math.max(0, progress - 1);
-			setUserProgress(player.getUniqueID(), progress);
-			globalProg = Math.max(0, globalProg - 1);
-		}
-	}
-	
-	@Override
 	public void detect(EntityPlayer player, IQuest quest)
 	{
-		int total = quest == null || !quest.getProperties().getProperty(NativeProps.GLOBAL)? getPartyProgress(player.getUniqueID()) : getGlobalProgress();
+		int total = quest == null || !quest.getProperty(NativeProps.GLOBAL)? getPartyProgress(player.getUniqueID()) : getGlobalProgress();
 		
 		if(total >= duration)
 		{
@@ -204,105 +171,78 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 	}
 	
 	@Override
-	public JsonObject writeToJson(JsonObject json, EnumSaveType saveType)
+	public NBTTagCompound writeToNBT(NBTTagCompound nbt)
 	{
-		if(saveType == EnumSaveType.PROGRESS)
-		{
-			return this.writeProgressToJson(json);
-		} else if(saveType != EnumSaveType.CONFIG)
-		{
-			return json;
-		}
+		nbt.setInteger("rf", rate);
+		nbt.setInteger("duration", duration);
+		nbt.setBoolean("voidExcess", delExcess);
 		
-		json.addProperty("rf", rate);
-		json.addProperty("duration", duration);
-		json.addProperty("voidExcess", delExcess);
-		
-		return json;
+		return nbt;
 	}
 	
 	@Override
-	public void readFromJson(JsonObject json, EnumSaveType saveType)
+	public void readFromNBT(NBTTagCompound nbt)
 	{
-		if(saveType == EnumSaveType.PROGRESS)
-		{
-			this.readProgressFromJson(json);
-			return;
-		} else if(saveType != EnumSaveType.CONFIG)
-		{
-			return;
-		}
-		
-		rate = JsonHelper.GetNumber(json, "rf", 100000).intValue();
-		duration = JsonHelper.GetNumber(json, "duration", 200).intValue();
-		delExcess = JsonHelper.GetBoolean(json, "voidExcess", delExcess);
+	    rate = nbt.getInteger("rf");
+	    duration = nbt.getInteger("duration");
+	    delExcess = nbt.getBoolean("voidExcess");
 	}
 	
-	private void readProgressFromJson(JsonObject json)
+	@Override
+	public void readProgressFromNBT(NBTTagCompound json, boolean merge)
 	{
-		completeUsers = new ArrayList<UUID>();
-		for(JsonElement entry : JsonHelper.GetArray(json, "completeUsers"))
+		completeUsers.clear();
+		NBTTagList cList = json.getTagList("completeUsers", 8);
+		for(int i = 0; i < cList.tagCount(); i++)
 		{
-			if(entry == null || !entry.isJsonPrimitive())
-			{
-				continue;
-			}
-			
 			try
 			{
-				completeUsers.add(UUID.fromString(entry.getAsString()));
+				completeUsers.add(UUID.fromString(cList.getStringTagAt(i)));
 			} catch(Exception e)
 			{
 				BQRF.logger.log(Level.ERROR, "Unable to load UUID for task", e);
 			}
 		}
 		
-		userProgress = new HashMap<UUID,Integer>();
-		for(JsonElement entry : JsonHelper.GetArray(json, "userProgress"))
+		userProgress.clear();
+		NBTTagList pList = json.getTagList("userProgress", 10);
+		for(int i = 0; i < pList.tagCount(); i++)
 		{
-			if(entry == null || !entry.isJsonObject())
-			{
-				continue;
-			}
+			NBTTagCompound pTag = pList.getCompoundTagAt(i);
 			
 			UUID uuid;
 			try
 			{
-				uuid = UUID.fromString(JsonHelper.GetString(entry.getAsJsonObject(), "uuid", ""));
+				uuid = UUID.fromString(pTag.getString("uuid"));
 			} catch(Exception e)
 			{
 				BQRF.logger.log(Level.ERROR, "Unable to load user progress for task", e);
 				continue;
 			}
 			
-			userProgress.put(uuid, JsonHelper.GetNumber(entry.getAsJsonObject(), "value", 0).intValue());
+			userProgress.put(uuid, pTag.getInteger("value"));
 		}
 	}
 	
-	private JsonObject writeProgressToJson(JsonObject json)
+	@Override
+	public NBTTagCompound writeProgressToNBT(NBTTagCompound json, List<UUID> users)
 	{
-		JsonArray jArray = new JsonArray();
+		NBTTagList jArray = new NBTTagList();
 		for(UUID uuid : completeUsers)
 		{
-			jArray.add(new JsonPrimitive(uuid.toString()));
+			jArray.appendTag(new NBTTagString(uuid.toString()));
 		}
-		json.add("completeUsers", jArray);
+		json.setTag("completeUsers", jArray);
 		
-		JsonArray progArray = new JsonArray();
+		NBTTagList progArray = new NBTTagList();
 		for(Entry<UUID,Integer> entry : userProgress.entrySet())
 		{
-			JsonObject pJson = new JsonObject();
-			try
-			{
-				pJson.addProperty("uuid", entry.getKey().toString());
-				pJson.addProperty("value", entry.getValue());
-			} catch(Exception e)
-			{
-				BQRF.logger.log(Level.ERROR, "Unable to save user progress for task", e);
-			}
-			progArray.add(pJson);
+			NBTTagCompound pJson = new NBTTagCompound();
+			pJson.setString("uuid", entry.getKey().toString());
+			pJson.setInteger("value", entry.getValue());
+			progArray.appendTag(pJson);
 		}
-		json.add("userProgress", progArray);
+		json.setTag("userProgress", progArray);
 		
 		return json;
 	}
@@ -359,12 +299,14 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 	}
 	
 	@Override
-	public IGuiEmbedded getTaskGui(int posX, int posY, int sizeX, int sizeY, IQuest quest)
+    @SideOnly(Side.CLIENT)
+	public IGuiPanel getTaskGui(IGuiRect rect, IQuest quest)
 	{
-		return new GuiTaskRfRate(quest, this, posX, posY, sizeX, sizeY);
+		return new PanelTaskRate(rect, quest, this);
 	}
 	
 	@Override
+    @SideOnly(Side.CLIENT)
 	public GuiScreen getTaskEditor(GuiScreen screen, IQuest quest)
 	{
 		return null;
@@ -374,11 +316,5 @@ public class TaskRfRate implements ITask, IRfTask, IProgression<Integer>, ITicka
 	public float getParticipation(UUID uuid)
 	{
 		return 0;
-	}
-
-	@Override
-	public IJsonDoc getDocumentation()
-	{
-		return null;
 	}
 }
