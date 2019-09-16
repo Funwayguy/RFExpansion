@@ -1,8 +1,6 @@
 package bq_rf.client.gui.tasks;
 
 import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.properties.NativeProps;
-import betterquesting.api.questing.IQuest;
 import betterquesting.api.utils.BigItemStack;
 import betterquesting.api2.client.gui.controls.IValueIO;
 import betterquesting.api2.client.gui.controls.io.FloatSimpleIO;
@@ -31,7 +29,6 @@ public class PanelTaskCharge extends CanvasEmpty
     private static final String[] suffixes = new String[]{"","K","M","B","T"};
     
     private final TaskRfCharge task;
-    private final IQuest quest;
     
     private PanelTextBox txtValue;
     private IValueIO<Float> barValue;
@@ -39,10 +36,9 @@ public class PanelTaskCharge extends CanvasEmpty
     
     private boolean flipFlop = false;
     
-    public PanelTaskCharge(IGuiRect rect, IQuest quest, TaskRfCharge task)
+    public PanelTaskCharge(IGuiRect rect, TaskRfCharge task)
     {
         super(rect);
-        this.quest = quest;
         this.task = task;
     }
     
@@ -53,7 +49,7 @@ public class PanelTaskCharge extends CanvasEmpty
         {
             flipFlop = !flipFlop;
             
-            long progress = !quest.getProperty(NativeProps.GLOBAL) ? task.getPartyProgress(uuid) : task.getGlobalProgress();
+            long progress = task.getUsersProgress(uuid);
             
             String strReq = formatRF(task.RF);
             String strPrg = formatRF(progress);
@@ -76,7 +72,7 @@ public class PanelTaskCharge extends CanvasEmpty
         
         this.addPanel(new PanelGeneric(new GuiTransform(GuiAlign.MID_CENTER, -16, -32, 32, 32, 0), new ItemTexture(new BigItemStack(Blocks.REDSTONE_BLOCK))));
         
-        long progress = !quest.getProperty(NativeProps.GLOBAL) ? task.getPartyProgress(uuid) : task.getGlobalProgress();
+        long progress = task.getUsersProgress(uuid);
         
         String strReq = formatRF(task.RF);
         String strPrg = formatRF(progress);

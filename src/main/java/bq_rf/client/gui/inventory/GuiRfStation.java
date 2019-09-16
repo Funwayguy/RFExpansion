@@ -37,7 +37,7 @@ import net.minecraft.util.NonNullList;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.util.vector.Vector4f;
 
-import java.util.Collections;
+import java.util.List;
 
 public class GuiRfStation extends GuiContainerCanvas implements IPEventListener, INeedsRefresh
 {
@@ -221,7 +221,6 @@ public class GuiRfStation extends GuiContainerCanvas implements IPEventListener,
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
 	private void onButtonPress(PEventButton event)
     {
         IPanelButton btn = event.getButton();
@@ -253,10 +252,10 @@ public class GuiRfStation extends GuiContainerCanvas implements IPEventListener,
             
             if(qdbe != null)
             {
-                DBEntry<ITask>[] tmpTasks = qdbe.getValue().getTasks().getEntries();
-                for(int i = 0; i < tmpTasks.length; i++)
+                List<DBEntry<ITask>> tmpTasks = qdbe.getValue().getTasks().getEntries();
+                for(int i = 0; i < tmpTasks.size(); i++)
                 {
-                    if(tmpTasks[i].getID() == tile.taskID)
+                    if(tmpTasks.get(i).getID() == tile.taskID)
                     {
                         selQuest = i;
                         break;
@@ -295,7 +294,7 @@ public class GuiRfStation extends GuiContainerCanvas implements IPEventListener,
         txtQstTitle.setText(QuestTranslation.translate(entry.getValue().getProperty(NativeProps.NAME)));
         
         tasks.clear();
-        Collections.addAll(tasks, entry.getValue().getTasks().getEntries());
+        tasks.addAll(entry.getValue().getTasks().getEntries());
         
         if(tasks.size() <= 0)
         {
@@ -308,7 +307,7 @@ public class GuiRfStation extends GuiContainerCanvas implements IPEventListener,
         txtTskTitle.setText(QuestTranslation.translate(curTask.getValue().getUnlocalisedName()));
         btnSet.setActive(!tile.isSetup() && curTask.getValue() instanceof IRfTask);
         
-        taskPanel = curTask.getValue().getTaskGui(new GuiTransform(GuiAlign.HALF_RIGHT, new GuiPadding(8, 88, 16, 24), 0), entry.getValue());
+        taskPanel = curTask.getValue().getTaskGui(new GuiTransform(GuiAlign.HALF_RIGHT, new GuiPadding(8, 88, 16, 24), 0), entry);
         if(taskPanel != null) cvBackground.addPanel(taskPanel);
     }
     

@@ -1,21 +1,15 @@
 package bq_rf.tasks;
 
-import betterquesting.api.api.ApiReference;
-import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
-import betterquesting.api.questing.party.IParty;
-import betterquesting.api.questing.tasks.IProgression;
 import betterquesting.api.questing.tasks.ITask;
-import betterquesting.api2.cache.CapabilityProviderQuestCache;
-import betterquesting.api2.cache.QuestCache;
 import betterquesting.api2.client.gui.misc.IGuiRect;
 import betterquesting.api2.client.gui.panels.IGuiPanel;
+import betterquesting.api2.storage.DBEntry;
+import betterquesting.api2.utils.ParticipantInfo;
 import bq_rf.client.gui.tasks.PanelTaskCharge;
 import bq_rf.core.BQRF;
 import bq_rf.tasks.factory.FactoryTaskRfCharge;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -27,15 +21,12 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Level;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.UUID;
+import javax.annotation.Nullable;
+import java.util.*;
 
-public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
+public class TaskRfCharge implements ITask, IRfTask
 {
-	private final List<UUID> completeUsers = new ArrayList<>();
+	private final Set<UUID> completeUsers = new TreeSet<>();
 	private final HashMap<UUID, Long> userProgress = new HashMap<>();
 	public long RF = 100000;
 	
@@ -60,51 +51,45 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 	@Override
 	public void setComplete(UUID uuid)
 	{
-		if(!completeUsers.contains(uuid))
-		{
-			completeUsers.add(uuid);
-		}
+		completeUsers.add(uuid);
 	}
 
 	@Override
-	public void resetUser(UUID uuid)
+	public void resetUser(@Nullable UUID uuid)
 	{
-		userProgress.remove(uuid);
-		completeUsers.remove(uuid);
-	}
-
-	@Override
-	public void resetAll()
-	{
-		userProgress.clear();
-		completeUsers.clear();
+	    if(uuid == null)
+        {
+            userProgress.clear();
+            completeUsers.clear();
+        } else
+        {
+            userProgress.remove(uuid);
+            completeUsers.remove(uuid);
+        }
 	}
 	
 	@Override
-	public void detect(EntityPlayer player, IQuest quest)
+	public void detect(ParticipantInfo pInfo, DBEntry<IQuest> quest)
 	{
-		if(player.inventory == null) return;
+		if(pInfo.PLAYER.inventory == null || isComplete(pInfo.UUID)) return;
 		
-		UUID uuid = QuestingAPI.getQuestingUUID(player);
-		
-		for(int i = 0; i < player.inventory.getSizeInventory(); i++)
+		for(int i = 0; i < pInfo.PLAYER.inventory.getSizeInventory(); i++)
 		{
-			ItemStack stack = player.inventory.getStackInSlot(i);
+			ItemStack stack = pInfo.PLAYER.inventory.getStackInSlot(i);
 			
 			if(stack.isEmpty()) continue;
 			
-			stack = submitItem(quest, player.getUniqueID(), stack);
-			player.inventory.setInventorySlotContents(i, stack);
+			stack = submitItem(quest, pInfo.UUID, stack);
+			pInfo.PLAYER.inventory.setInventorySlotContents(i, stack);
 			
-			if(isComplete(uuid)) break;
+			if(isComplete(pInfo.UUID)) break;
 		}
 		
-        QuestCache qc = player.getCapability(CapabilityProviderQuestCache.CAP_QUEST_CACHE, null);
-        if(qc != null) qc.markQuestDirty(QuestingAPI.getAPI(ApiReference.QUEST_DB).getID(quest));
+        pInfo.markDirty(Collections.singletonList(quest.getID()));
 	}
 	
 	@Override
-	public ItemStack submitItem(IQuest quest, UUID owner, ItemStack stack)
+	public ItemStack submitItem(DBEntry<IQuest> quest, UUID owner, ItemStack stack)
 	{
 		if(stack.isEmpty()) return stack;
         
@@ -117,19 +102,13 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 		int extracted = cap.extractEnergy(requesting, false);
 		progress += extracted;
 		setUserProgress(owner, progress);
-		
-		long total = quest == null || !quest.getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
-		
-		if(total >= RF)
-		{
-			setComplete(owner);
-		}
+		if(progress >= RF) setComplete(owner);
 		
 		return stack;
 	}
 	
 	@Override
-	public int submitEnergy(IQuest quest, UUID owner, int amount)
+	public int submitEnergy(DBEntry<IQuest> quest, UUID owner, int amount)
 	{
 		Long progress = getUsersProgress(owner);
 		progress = progress != null? progress : 0;
@@ -137,13 +116,7 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 		int extracted = Math.min(amount, requesting);
 		progress += extracted;
 		setUserProgress(owner, progress);
-		
-		long total = !quest.getProperty(NativeProps.GLOBAL)? getPartyProgress(owner) : getGlobalProgress();
-		
-		if(total >= RF)
-		{
-			setComplete(owner);
-		}
+		if(progress >= RF) setComplete(owner);
 		
 		return (amount - extracted);
 	}
@@ -165,7 +138,12 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 	@Override
 	public void readProgressFromNBT(NBTTagCompound nbt, boolean merge)
 	{
-		completeUsers.clear();
+		if(!merge)
+        {
+            completeUsers.clear();
+            userProgress.clear();
+        }
+		
 		NBTTagList cList = nbt.getTagList("completeUsers", 8);
 		for(int i = 0; i < cList.tagCount(); i++)
 		{
@@ -178,23 +156,18 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 			}
 		}
 		
-		userProgress.clear();
 		NBTTagList pList = nbt.getTagList("userProgress", 10);
-		for(int i = 0; i < pList.tagCount(); i++)
+		for(int n = 0; n < pList.tagCount(); n++)
 		{
-			NBTTagCompound pTag = pList.getCompoundTagAt(i);
-			
-			UUID uuid;
 			try
 			{
-				uuid = UUID.fromString(pTag.getString("uuid"));
+                NBTTagCompound pTag = pList.getCompoundTagAt(n);
+                UUID uuid = UUID.fromString(pTag.getString("uuid"));
+                userProgress.put(uuid, pTag.getLong("value"));
 			} catch(Exception e)
 			{
 				BQRF.logger.log(Level.ERROR, "Unable to load user progress for task", e);
-				continue;
 			}
-			
-			userProgress.put(uuid, pTag.getLong("value"));
 		}
 	}
 	
@@ -202,38 +175,45 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 	public NBTTagCompound writeProgressToNBT(NBTTagCompound nbt, List<UUID> users)
 	{
 		NBTTagList jArray = new NBTTagList();
-		for(UUID uuid : completeUsers)
-		{
-			jArray.appendTag(new NBTTagString(uuid.toString()));
-		}
-		nbt.setTag("completeUsers", jArray);
-		
 		NBTTagList progArray = new NBTTagList();
-		for(Entry<UUID,Long> entry : userProgress.entrySet())
-		{
-			NBTTagCompound pJson = new NBTTagCompound();
-			pJson.setString("uuid", entry.getKey().toString());
-			pJson.setLong("value", entry.getValue());
-			progArray.appendTag(pJson);
-		}
+		
+		if(users != null)
+        {
+            users.forEach((uuid) -> {
+                if(completeUsers.contains(uuid)) jArray.appendTag(new NBTTagString(uuid.toString()));
+                
+                Long data = userProgress.get(uuid);
+                if(data != null)
+                {
+                    NBTTagCompound pJson = new NBTTagCompound();
+                    pJson.setString("uuid", uuid.toString());
+                    pJson.setLong("value", data);
+                    progArray.appendTag(pJson);
+                }
+            });
+        } else
+        {
+            completeUsers.forEach((uuid) -> jArray.appendTag(new NBTTagString(uuid.toString())));
+            
+            userProgress.forEach((uuid, data) -> {
+                NBTTagCompound pJson = new NBTTagCompound();
+			    pJson.setString("uuid", uuid.toString());
+                pJson.setLong("value", data);
+                progArray.appendTag(pJson);
+            });
+        }
+		
+		nbt.setTag("completeUsers", jArray);
 		nbt.setTag("userProgress", progArray);
 		
 		return nbt;
 	}
 	
-	@Override
-	public float getParticipation(UUID uuid)
-	{
-		return (float)(getUsersProgress(uuid) / (double) RF);
-	}
-	
-	@Override
-	public void setUserProgress(UUID uuid, Long progress)
+	private void setUserProgress(UUID uuid, Long progress)
 	{
 		userProgress.put(uuid, progress);
 	}
 	
-	@Override
 	public Long getUsersProgress(UUID... uuid)
 	{
 		long total = 0;
@@ -247,54 +227,16 @@ public class TaskRfCharge implements ITask, IRfTask, IProgression<Long>
 		return total;
 	}
 	
-	public Long getPartyProgress(UUID uuid)
-	{
-		long total = 0;
-		
-		IParty party = QuestingAPI.getAPI(ApiReference.PARTY_DB).getUserParty(uuid);
-		
-		if(party == null)
-		{
-			return getUsersProgress(uuid);
-		} else
-		{
-			for(UUID mem : party.getMembers())
-			{
-				if(mem != null && party.getStatus(mem).ordinal() <= 0)
-				{
-					continue;
-				}
-				
-				total += getUsersProgress(mem);
-			}
-		}
-		
-		return total;
-	}
-	
 	@Override
-	public Long getGlobalProgress()
+	@SideOnly(Side.CLIENT)
+	public IGuiPanel getTaskGui(IGuiRect rect, DBEntry<IQuest> quest)
 	{
-		long total = 0;
-		
-		for(Long i : userProgress.values())
-		{
-			total += i == null? 0 : i;
-		}
-		
-		return total;
+		return new PanelTaskCharge(rect, this);
 	}
 	
 	@Override
 	@SideOnly(Side.CLIENT)
-	public IGuiPanel getTaskGui(IGuiRect rect, IQuest quest)
-	{
-		return new PanelTaskCharge(rect, quest, this);
-	}
-	
-	@Override
-	@SideOnly(Side.CLIENT)
-	public GuiScreen getTaskEditor(GuiScreen screen, IQuest quest)
+	public GuiScreen getTaskEditor(GuiScreen screen, DBEntry<IQuest> quest)
 	{
 		return null;
 	}

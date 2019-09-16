@@ -24,8 +24,6 @@ public class BQRF
 {
     public static final String MODID = "bq_rf";
     public static final String VERSION = "CI_MOD_VERSION";
-    public static final String HASH = "CI_MOD_HASH";
-    public static final String BRANCH = "CI_MOD_BRANCH";
     public static final String NAME = "RF Expansion";
     public static final String PROXY = "bq_rf.core.proxies";
     public static final String CHANNEL = "BQ_RF";

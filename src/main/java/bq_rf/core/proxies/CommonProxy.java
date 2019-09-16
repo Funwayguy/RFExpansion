@@ -26,7 +26,7 @@ public class CommonProxy
 		NetworkRegistry.INSTANCE.registerGuiHandler(BQRF.instance, new GuiHandler());
 		
 		IPacketRegistry pktReg = QuestingAPI.getAPI(ApiReference.PACKET_REG);
-    	pktReg.registerHandler(new PktHandlerRfTile());
+    	PktHandlerRfTile.registerHandler();
     	
     	IRegistry<IFactoryData<ITask, NBTTagCompound>, ITask> tskReg = QuestingAPI.getAPI(ApiReference.TASK_REG);
     	tskReg.register(FactoryTaskRfCharge.INSTANCE);

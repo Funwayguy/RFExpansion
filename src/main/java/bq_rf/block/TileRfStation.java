@@ -2,14 +2,14 @@ package bq_rf.block;
 
 import betterquesting.api.api.ApiReference;
 import betterquesting.api.api.QuestingAPI;
-import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api2.cache.CapabilityProviderQuestCache;
 import betterquesting.api2.cache.QuestCache;
+import betterquesting.api2.storage.DBEntry;
 import bq_rf.core.BQRF;
-import bq_rf.network.RfPacketType;
+import bq_rf.network.PktHandlerRfTile;
 import bq_rf.tasks.IRfTask;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -39,12 +39,12 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
 {
 	private final IItemHandler itemHandler;
 	private NonNullList<ItemStack> itemStacks = NonNullList.withSize(2, ItemStack.EMPTY);
-	boolean needsUpdate = false;
+	private boolean needsUpdate = false;
 	public UUID owner;
 	public int questID;
 	public int taskID;
 	
-	private IQuest qCached;
+	private DBEntry<IQuest> qCached;
 	
 	public TileRfStation()
 	{
@@ -62,7 +62,7 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
 		if(wtt%10 == 0 && owner != null)
 		{
 		    if(wtt%20 == 0) qCached = null;
-            IQuest q = getQuest();
+            DBEntry<IQuest> q = getQuest();
             IRfTask t = getTask();
             MinecraftServer server = world.getMinecraftServer();
             EntityPlayerMP player = server == null ? null : server.getPlayerList().getPlayerByUUID(owner);
@@ -116,14 +116,13 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
 	{
 	    if(!isSetup() || energy <= 0 || QuestingAPI.getAPI(ApiReference.SETTINGS).getProperty(NativeProps.EDIT_MODE)) return 0;
 	    
-		IQuest q = getQuest();
 		IRfTask t = getTask();
 		
 		int remainder = 0;
 		
 		if(!simulate)
 		{
-			remainder = t.submitEnergy(q, owner, energy);
+			remainder = t.submitEnergy(getQuest(), owner, energy);
 		
 			if(t.isComplete(owner))
 			{
@@ -256,28 +255,32 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
 		return stack.hasCapability(CapabilityEnergy.ENERGY, null) && stack.getCapability(CapabilityEnergy.ENERGY, null).getEnergyStored() > 0;
 	}
 	
-	public IQuest getQuest()
+	public DBEntry<IQuest> getQuest()
 	{
 		if(questID < 0)
 		{
 			return null;
 		} else
 		{
-		    if(qCached == null) qCached = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+		    if(qCached == null)
+            {
+                IQuest tmp = QuestingAPI.getAPI(ApiReference.QUEST_DB).getValue(questID);
+                if(tmp != null) qCached = new DBEntry<>(questID, tmp);
+            }
 			return qCached;
 		}
 	}
 	
 	public ITask getRawTask()
 	{
-		IQuest q = getQuest();
+		DBEntry<IQuest> q = getQuest();
 		
 		if(q == null || taskID < 0)
 		{
 			return null;
 		} else
 		{
-			return q.getTasks().getValue(taskID);
+			return q.getValue().getTasks().getValue(taskID);
 		}
 	}
 	
@@ -295,7 +298,7 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
 		}
 		
 		this.questID = QuestingAPI.getAPI(ApiReference.QUEST_DB).getID(quest);
-		this.qCached = quest;
+		this.qCached = new DBEntry<>(questID, quest);
 		this.taskID = quest.getTasks().getID(task);
 		
 		if(this.questID < 0 || this.taskID < 0)
@@ -358,9 +361,7 @@ public class TileRfStation extends TileEntity implements IEnergyStorage, ISidedI
     		world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
     	} else
     	{
-    		NBTTagCompound payload = new NBTTagCompound();
-    		payload.setTag("tile", this.writeToNBT(new NBTTagCompound()));
-    		QuestingAPI.getAPI(ApiReference.PACKET_SENDER).sendToServer(new QuestingPacket(RfPacketType.RF_TILE.GetLocation(), payload));
+            PktHandlerRfTile.sendEdit(this.writeToNBT(new NBTTagCompound()));
     	}
     }
 	
